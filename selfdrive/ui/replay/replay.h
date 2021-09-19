@@ -1,10 +1,8 @@
 #pragma once
 
 #include <iostream>
-#include <termios.h>
 
 #include <QJsonArray>
-#include <QReadWriteLock>
 #include <QThread>
 
 #include <capnp/dynamic.h>
@@ -15,26 +13,24 @@
 #include "selfdrive/ui/replay/filereader.h"
 #include "selfdrive/ui/replay/framereader.h"
 
-
 constexpr int FORWARD_SEGS = 2;
 constexpr int BACKWARD_SEGS = 2;
-
 
 class Replay : public QObject {
   Q_OBJECT
 
 public:
-  Replay(QString route, SubMaster *sm = nullptr, QObject *parent = 0);
+  Replay(QString route, QStringList allow, QStringList block, SubMaster *sm = nullptr, QObject *parent = 0);
 
   void start();
   void addSegment(int n);
-  void removeSegment(int n);
-  void seekTime(int ts);
+  void relativeSeek(int seconds);
+  void seekTo(int seconds);
+
+  void stream();
+  void segmentQueueThread();
 
 public slots:
-  void stream();
-  void keyboardThread();
-  void segmentQueueThread();
   void parseResponse(const QString &response);
   void mergeEvents();
 
@@ -50,9 +46,10 @@ private:
   QThread *queue_thread;
 
   // logs
-  QMultiMap<uint64_t, Event*> events;
-  QReadWriteLock events_lock;
-  std::unordered_map<uint32_t, EncodeIdx> eidx[MAX_CAMERAS];
+  std::mutex lock;
+  std::atomic<bool> updating_events = false;
+  QMultiMap<uint64_t, Event *> *events = nullptr;
+  std::unordered_map<uint32_t, EncodeIdx> *eidx = nullptr;
 
   HttpRequest *http;
   QJsonArray camera_paths;
