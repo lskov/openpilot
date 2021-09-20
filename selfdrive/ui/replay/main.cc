@@ -1,5 +1,6 @@
 #include "selfdrive/ui/replay/replay.h"
 
+#include <iostream>
 #include <termios.h>
 
 #include <QApplication>
@@ -54,6 +55,8 @@ void keyboardThread(Replay *replay) {
       replay->relativeSeek(-10);
     } else if (c == 'G') {
       replay->relativeSeek(0);
+    } else if (c == ' ') {
+      replay->pause(!replay->isPaused());
     }
   }
 }
@@ -67,6 +70,7 @@ int main(int argc, char *argv[]){
   parser.addPositionalArgument("route", "the drive to replay. find your drives at connect.comma.ai");
   parser.addOption({{"a", "allow"}, "whitelist of services to send", "allow"});
   parser.addOption({{"b", "block"}, "blacklist of services to send", "block"});
+  parser.addOption({{"s", "start"}, "start from <seconds>", "seconds"});
   parser.addOption({"demo", "use a demo route instead of providing your own"});
 
   parser.process(a);
@@ -79,7 +83,7 @@ int main(int argc, char *argv[]){
   QStringList allow = parser.value("allow").isEmpty() ? QStringList{} : parser.value("allow").split(",");
   QStringList block = parser.value("block").isEmpty() ? QStringList{} : parser.value("block").split(",");
   Replay *replay = new Replay(route, allow, block);
-  replay->start();
+  replay->start(parser.value("start").toInt());
 
   // start keyboard control thread
   QThread *t = QThread::create(keyboardThread, replay);
