@@ -5,11 +5,11 @@ from selfdrive.controls.lib.drive_helpers import rate_limit
 from common.numpy_fast import clip, interp
 from selfdrive.car import create_gas_command
 from selfdrive.car.honda import hondacan
-from selfdrive.car.honda.values import CruiseButtons, VISUAL_HUD, HONDA_BOSCH, CarControllerParams
+from selfdrive.car.honda.values import CruiseButtons, VISUAL_HUD, HONDA_BOSCH, HONDA_NIDEC_ALT_PCM_ACCEL, CarControllerParams
 from opendbc.can.packer import CANPacker
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
-
+LongCtrlState = car.CarControl.Actuators.LongControlState
 
 def compute_gb_honda_bosch(accel, speed):
   #TODO returns 0s, is unused
@@ -107,8 +107,7 @@ class CarController():
 
     self.params = CarControllerParams(CP)
 
-  def update(self, enabled, CS, frame, actuators,
-             pcm_speed, pcm_override, pcm_cancel_cmd, pcm_accel,
+  def update(self, enabled, CS, frame, actuators, pcm_cancel_cmd,
              hud_v_cruise, hud_show_lanes, hud_show_car, hud_alert):
 
     P = self.params
@@ -172,11 +171,8 @@ class CarController():
     can_sends.append(hondacan.create_steering_control(self.packer, apply_steer,
       lkas_active, CS.CP.carFingerprint, idx, CS.CP.openpilotLongitudinalControl))
 
-
-
-    # TODO: pass in LoC.long_control_state and use that to decide starting/stoppping
-    stopping = accel < 0 and CS.out.vEgo < 0.3
-    starting = accel > 0 and CS.out.vEgo < 0.3
+    stopping = actuators.longControlState == LongCtrlState.stopping
+    starting = actuators.longControlState == LongCtrlState.starting
 
     # Prevent rolling backwards
     accel = -4.0 if stopping else accel
@@ -186,17 +182,29 @@ class CarController():
     # all of this is only relevant for HONDA NIDEC
     max_accel = interp(CS.out.vEgo, P.NIDEC_MAX_ACCEL_BP, P.NIDEC_MAX_ACCEL_V)
     # TODO this 1.44 is just to maintain previous behavior
-    pcm_accel = int(clip((accel/1.44)/max_accel, 0.0, 1.0) * 0xc6)
     pcm_speed_BP = [-wind_brake,
                     -wind_brake*(3/4),
                       0.0,
-                      0.1]
-
-    pcm_speed_V = [0.0,
-                   clip(CS.out.vEgo + accel/2.0 - 2.0, 0.0, 100.0),
-                   clip(CS.out.vEgo + accel/2.0 + 2.0, 0.0, 100.0),
-                   clip(CS.out.vEgo + 5.0, 0.0, 100.0)]
-    pcm_speed = interp(gas-brake, pcm_speed_BP, pcm_speed_V)
+                      0.5]
+    # The Honda ODYSSEY seems to have different PCM_ACCEL
+    # msgs, is it other cars too?
+    if CS.CP.enableGasInterceptor:
+      pcm_speed = 0.0
+      pcm_accel = int(0.0)
+    elif CS.CP.carFingerprint in HONDA_NIDEC_ALT_PCM_ACCEL:
+      pcm_speed_V = [0.0,
+                     clip(CS.out.vEgo - 3.0, 0.0, 100.0),
+                     clip(CS.out.vEgo + 0.0, 0.0, 100.0),
+                     clip(CS.out.vEgo + 5.0, 0.0, 100.0)]
+      pcm_speed = interp(gas-brake, pcm_speed_BP, pcm_speed_V)
+      pcm_accel = int((1.0) * 0xc6)
+    else:
+      pcm_speed_V = [0.0,
+                     clip(CS.out.vEgo - 2.0, 0.0, 100.0),
+                     clip(CS.out.vEgo + 2.0, 0.0, 100.0),
+                     clip(CS.out.vEgo + 5.0, 0.0, 100.0)]
+      pcm_speed = interp(gas-brake, pcm_speed_BP, pcm_speed_V)
+      pcm_accel = int(clip((accel/1.44)/max_accel, 0.0, 1.0) * 0xc6)
 
     if not CS.CP.openpilotLongitudinalControl:
       if (frame % 2) == 0:
@@ -222,6 +230,8 @@ class CarController():
           apply_brake = clip(self.brake_last - wind_brake, 0.0, 1.0)
           apply_brake = int(clip(apply_brake * P.BRAKE_MAX, 0, P.BRAKE_MAX - 1))
           pump_on, self.last_pump_ts = brake_pump_hysteresis(apply_brake, self.apply_brake_last, self.last_pump_ts, ts)
+
+          pcm_override = True
           can_sends.append(hondacan.create_brake_command(self.packer, apply_brake, pump_on,
             pcm_override, pcm_cancel_cmd, fcw_display, idx, CS.CP.carFingerprint, CS.stock_brake))
           self.apply_brake_last = apply_brake
@@ -231,7 +241,7 @@ class CarController():
             gas_mult = interp(CS.out.vEgo, [0., 10.], [0.4, 1.0])
             # send exactly zero if apply_gas is zero. Interceptor will send the max between read value and apply_gas.
             # This prevents unexpected pedal range rescaling
-            apply_gas = clip(gas_mult * gas, 0., 1.)
+            apply_gas = clip(gas_mult * (gas - brake + wind_brake*3/4), 0., 1.)
             can_sends.append(create_gas_command(self.packer, apply_gas, idx))
 
     hud = HUDData(int(pcm_accel), int(round(hud_v_cruise)), hud_car,
