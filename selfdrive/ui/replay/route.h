@@ -1,14 +1,20 @@
 #pragma once
 
-#include <QNetworkAccessManager>
-#include <QString>
-#include <vector>
+#include <QDir>
+#include <QThread>
 
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/replay/framereader.h"
 #include "selfdrive/ui/replay/logreader.h"
 
-const QString CACHE_DIR = util::getenv("COMMA_CACHE", "/tmp/comma_download_cache/").c_str();
+const QDir CACHE_DIR(util::getenv("COMMA_CACHE", "/tmp/comma_download_cache/").c_str());
+
+struct RouteIdentifier {
+  QString dongle_id;
+  QString timestamp;
+  int segment_id;
+  QString str;
+};
 
 struct SegmentFile {
   QString rlog;
@@ -21,45 +27,46 @@ struct SegmentFile {
 
 class Route {
 public:
-  Route(const QString &route);
+  Route(const QString &route, const QString &data_dir = {});
   bool load();
-
-  inline const QString &name() const { return route_; };
-  inline int size() const { return segments_.size(); }
-  inline SegmentFile &at(int n) { return segments_[n]; }
+  inline const QString &name() const { return route_.str; }
+  inline const RouteIdentifier &identifier() const { return route_; }
+  inline const std::map<int, SegmentFile> &segments() const { return segments_; }
+  inline const SegmentFile &at(int n) { return segments_.at(n); }
+  static RouteIdentifier parseRoute(const QString &str);
 
 protected:
+  bool loadFromLocal();
+  bool loadFromServer();
   bool loadFromJson(const QString &json);
-  QString route_;
-  std::vector<SegmentFile> segments_;
+  void addFileToSegment(int seg_num, const QString &file);
+  RouteIdentifier route_ = {};
+  QString data_dir_;
+  std::map<int, SegmentFile> segments_;
 };
 
 class Segment : public QObject {
   Q_OBJECT
 
 public:
-  Segment(int n, const SegmentFile &segment_files);
+  Segment(int n, const SegmentFile &files, bool load_dcam, bool load_ecam);
   ~Segment();
-  inline bool isValid() const { return valid_; };
-  inline bool isLoaded() const { return loaded_; }
+  inline bool isLoaded() const { return !loading_ && success_; }
 
+  const int seg_num = 0;
   std::unique_ptr<LogReader> log;
   std::unique_ptr<FrameReader> frames[MAX_CAMERAS] = {};
 
 signals:
-  void loadFinished();
+  void loadFinished(bool success);
 
 protected:
-  void load();
-  void downloadFile(const QString &url);
-  QString localPath(const QUrl &url);
+  void loadFile(int id, const std::string file);
+  bool downloadFile(int id, const std::string &url, const std::string local_file);
+  std::string cacheFilePath(const std::string &file);
 
-  bool loaded_ = false, valid_ = false;
-  bool aborting_ = false;
-  int downloading_ = 0;
-  int seg_num_ = 0;
-  SegmentFile files_;
-  QString road_cam_path_;
-  QSet<QNetworkReply *> replies_;
-  QNetworkAccessManager qnam_;
+  std::atomic<bool> success_ = true, aborting_ = false;
+  std::atomic<int> loading_ = 0;
+  std::vector<QThread*> loading_threads_;
+  const int max_retries_ = 3;
 };

@@ -1,18 +1,14 @@
 #pragma once
 
-#include <unordered_map>
-#include <vector>
+#include <memory_resource>
 
-#include <capnp/serialize.h>
 #include "cereal/gen/cpp/log.capnp.h"
 #include "selfdrive/camerad/cameras/camera_common.h"
 
 const CameraType ALL_CAMERAS[] = {RoadCam, DriverCam, WideRoadCam};
 const int MAX_CAMERAS = std::size(ALL_CAMERAS);
-struct EncodeIdx {
-  int segmentNum;
-  uint32_t frameEncodeId;
-};
+const int DEFAULT_EVENT_MEMORY_POOL_BLOCK_SIZE = 65000;
+
 class Event {
 public:
   Event(cereal::Event::Which which, uint64_t mono_time) : reader(kj::ArrayPtr<capnp::word>{}) {
@@ -20,12 +16,7 @@ public:
     this->which = which;
     this->mono_time = mono_time;
   }
-  Event(const kj::ArrayPtr<const capnp::word> &amsg) : reader(amsg) {
-    words = kj::ArrayPtr<const capnp::word>(amsg.begin(), reader.getEnd());
-    event = reader.getRoot<cereal::Event>();
-    which = event.which();
-    mono_time = event.getLogMonoTime();
-  }
+  Event(const kj::ArrayPtr<const capnp::word> &amsg, bool frame = false);
   inline kj::ArrayPtr<const capnp::byte> bytes() const { return words.asBytes(); }
 
   struct lessThan {
@@ -34,22 +25,31 @@ public:
     }
   };
 
+  void *operator new(size_t size, std::pmr::monotonic_buffer_resource *mbr) {
+    return mbr->allocate(size);
+  }
+  void operator delete(void *ptr) {
+    // No-op. memory used by EventMemoryPool increases monotonically until the logReader is destroyed. 
+  }
+
   uint64_t mono_time;
   cereal::Event::Which which;
   cereal::Event::Reader event;
   capnp::FlatArrayMessageReader reader;
   kj::ArrayPtr<const capnp::word> words;
+  bool frame;
 };
 
 class LogReader {
 public:
-  LogReader() = default;
+  LogReader(size_t memory_pool_block_size = DEFAULT_EVENT_MEMORY_POOL_BLOCK_SIZE);
   ~LogReader();
   bool load(const std::string &file);
 
   std::vector<Event*> events;
-  std::unordered_map<uint32_t, EncodeIdx> eidx[MAX_CAMERAS] = {};
 
 private:
-  std::vector<uint8_t> raw_;
+  std::string raw_;
+  std::pmr::monotonic_buffer_resource *mbr_ = nullptr;
+  void *pool_buffer_ = nullptr;
 };
