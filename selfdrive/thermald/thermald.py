@@ -32,8 +32,8 @@ NetworkType = log.DeviceState.NetworkType
 NetworkStrength = log.DeviceState.NetworkStrength
 CURRENT_TAU = 15.   # 15s time constant
 TEMP_TAU = 5.   # 5s time constant
-DAYS_NO_CONNECTIVITY_MAX = 7  # do not allow to engage after a week without internet
-DAYS_NO_CONNECTIVITY_PROMPT = 4  # send an offroad prompt after 4 days with no internet
+DAYS_NO_CONNECTIVITY_MAX = 14     # do not allow to engage after this many days
+DAYS_NO_CONNECTIVITY_PROMPT = 10  # send an offroad prompt after this many days
 DISCONNECT_TIMEOUT = 5.  # wait 5 seconds before going offroad after disconnect so you get an alert
 
 ThermalBand = namedtuple("ThermalBand", ['min_temp', 'max_temp'])
@@ -290,6 +290,7 @@ def thermald_thread():
     if modem_temps is not None:
       msg.deviceState.modemTempC = modem_temps
 
+    msg.deviceState.screenBrightnessPercent = HARDWARE.get_screen_brightness()
     msg.deviceState.batteryPercent = HARDWARE.get_battery_capacity()
     msg.deviceState.batteryCurrent = HARDWARE.get_battery_current()
     msg.deviceState.usbOnline = HARDWARE.get_usb_present()
