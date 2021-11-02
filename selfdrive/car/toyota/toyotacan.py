@@ -35,7 +35,7 @@ def create_accel_command(packer, accel, pcm_cancel, standstill_req, lead, acc_ty
     "ACC_TYPE": acc_type,
     "DISTANCE": 0,
     "MINI_CAR": lead,
-    "SET_ME_X3": 3,
+    "ALLOW_LONG_PRESS": 3,
     "PERMIT_BRAKING": 1,
     "RELEASE_STANDSTILL": not standstill_req,
     "CANCEL_REQ": pcm_cancel,
@@ -57,6 +57,7 @@ def create_acc_cancel_command(packer):
 
 def create_fcw_command(packer, fcw):
   values = {
+    "PCS_INDICATOR": 1,
     "FCW": fcw,
     "SET_ME_X20": 0x20,
     "SET_ME_X10": 0x10,

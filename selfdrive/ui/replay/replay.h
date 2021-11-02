@@ -5,23 +5,34 @@
 #include "selfdrive/ui/replay/camera.h"
 #include "selfdrive/ui/replay/route.h"
 
-constexpr int FORWARD_SEGS = 2;
+// one segment uses about 100M of memory
+constexpr int FORWARD_SEGS = 5;
+
+enum REPLAY_FLAGS {
+  REPLAY_FLAG_NONE = 0x0000,
+  REPLAY_FLAG_DCAM = 0x0002,
+  REPLAY_FLAG_ECAM = 0x0004,
+  REPLAY_FLAG_NO_LOOP = 0x0010,
+  REPLAY_FLAG_NO_FILE_CACHE = 0x0020,
+};
 
 class Replay : public QObject {
   Q_OBJECT
 
 public:
-  Replay(QString route, QStringList allow, QStringList block, SubMaster *sm = nullptr, bool dcam = false, bool ecam = false,
-         QString data_dir="", QObject *parent = 0);
+  Replay(QString route, QStringList allow, QStringList block, SubMaster *sm = nullptr,
+          uint32_t flags = REPLAY_FLAG_NONE, QString data_dir = "", QObject *parent = 0);
   ~Replay();
   bool load();
   void start(int seconds = 0);
+  void stop();
   void pause(bool pause);
   bool isPaused() const { return paused_; }
+  inline bool hasFlag(REPLAY_FLAGS flag) { return flags_ & flag; };
 
 signals:
- void segmentChanged();
- void seekTo(int seconds, bool relative);
+  void segmentChanged();
+  void seekTo(int seconds, bool relative);
 
 protected slots:
   void queueSegment();
@@ -64,6 +75,6 @@ protected:
   PubMaster *pm = nullptr;
   std::vector<const char*> sockets_;
   std::unique_ptr<Route> route_;
-  bool load_dcam = false, load_ecam = false;
   std::unique_ptr<CameraServer> camera_server_;
+  uint32_t flags_ = REPLAY_FLAG_NONE;
 };

@@ -13,9 +13,9 @@ AddOption('--test',
           action='store_true',
           help='build test files')
 
-AddOption('--setup',
+AddOption('--extras',
           action='store_true',
-          help='build setup and installer files')
+          help='build misc extras, like setup and installer files')
 
 AddOption('--kaitai',
           action='store_true',
@@ -181,6 +181,7 @@ env = Environment(
     "-O2",
     "-Wunused",
     "-Werror",
+    "-Wshadow",
     "-Wno-unknown-warning-option",
     "-Wno-deprecated-register",
     "-Wno-register",
@@ -267,7 +268,7 @@ def abspath(x):
 py_include = sysconfig.get_paths()['include']
 envCython = env.Clone()
 envCython["CPPPATH"] += [py_include, np.get_include()]
-envCython["CCFLAGS"] += ["-Wno-#warnings", "-Wno-deprecated-declarations"]
+envCython["CCFLAGS"] += ["-Wno-#warnings", "-Wno-shadow", "-Wno-deprecated-declarations"]
 
 envCython["LIBS"] = []
 if arch == "Darwin":
@@ -428,6 +429,9 @@ SConscript(['selfdrive/ui/SConscript'])
 
 if arch != "Darwin":
   SConscript(['selfdrive/logcatd/SConscript'])
+
+if GetOption('test'):
+  SConscript('panda/tests/safety/SConscript')
 
 external_sconscript = GetOption('external_sconscript')
 if external_sconscript:
