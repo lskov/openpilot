@@ -68,6 +68,7 @@ lenv = {
   "PYTHONPATH": Dir("#").abspath + ":" + Dir("#pyextra/").abspath,
 
   "ACADOS_SOURCE_DIR": Dir("#third_party/acados/acados").abspath,
+  "ACADOS_PYTHON_INTERFACE_PATH": Dir("#pyextra/acados_template").abspath,
   "TERA_PATH": Dir("#").abspath + f"/third_party/acados/{arch}/t_renderer",
 }
 
@@ -188,6 +189,7 @@ env = Environment(
     "-Wno-inconsistent-missing-override",
     "-Wno-c99-designator",
     "-Wno-reorder-init-list",
+    "-Wno-error=unused-but-set-variable",
   ] + cflags + ccflags,
 
   CPPPATH=cpppath + [

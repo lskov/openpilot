@@ -1,6 +1,6 @@
 from cereal import car
 from common.numpy_fast import clip, interp
-from selfdrive.car import apply_toyota_steer_torque_limits, create_gas_command, make_can_msg
+from selfdrive.car import apply_toyota_steer_torque_limits, create_gas_interceptor_command, make_can_msg
 from selfdrive.car.toyota.toyotacan import create_steer_command, create_ui_command, \
                                            create_accel_command, create_acc_cancel_command, \
                                            create_fcw_command, create_lta_steer_command
@@ -37,7 +37,7 @@ class CarController():
 
     self.packer = CANPacker(dbc_name)
 
-  def update(self, enabled, CS, frame, actuators, pcm_cancel_cmd, hud_alert,
+  def update(self, enabled, active, CS, frame, actuators, pcm_cancel_cmd, hud_alert,
              left_line, right_line, lead, left_lane_depart, right_lane_depart):
 
     # *** compute control surfaces ***
@@ -53,7 +53,7 @@ class CarController():
       elif CS.out.vEgo > MIN_ACC_SPEED + PEDAL_HYST_GAP:
         self.use_interceptor = False
 
-      if self.use_interceptor and enabled:
+      if self.use_interceptor and active:
         # only send negative accel when using interceptor. gas handles acceleration
         # +0.18 m/s^2 offset to reduce ABS pump usage when OP is engaged
         MAX_INTERCEPTOR_GAS = interp(CS.out.vEgo, [0.0, MIN_ACC_SPEED], [0.2, 0.5])
@@ -123,7 +123,7 @@ class CarController():
     if frame % 2 == 0 and CS.CP.enableGasInterceptor:
       # send exactly zero if gas cmd is zero. Interceptor will send the max between read value and gas cmd.
       # This prevents unexpected pedal range rescaling
-      can_sends.append(create_gas_command(self.packer, interceptor_gas_cmd, frame // 2))
+      can_sends.append(create_gas_interceptor_command(self.packer, interceptor_gas_cmd, frame // 2))
 
     # ui mesg is at 100Hz but we send asap if:
     # - there is something to display
