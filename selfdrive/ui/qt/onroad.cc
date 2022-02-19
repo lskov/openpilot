@@ -78,13 +78,17 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
 void OnroadWindow::offroadTransition(bool offroad) {
 #ifdef ENABLE_MAPS
   if (!offroad) {
-    if (map == nullptr && (uiState()->has_prime || !MAPBOX_TOKEN.isEmpty())) {
+    if (map == nullptr && (uiState()->prime_type || !MAPBOX_TOKEN.isEmpty())) {
       MapWindow * m = new MapWindow(get_mapbox_settings());
-      m->setFixedWidth(topWidget(this)->width() / 2);
-      m->offroadTransition(offroad);
-      QObject::connect(uiState(), &UIState::offroadTransition, m, &MapWindow::offroadTransition);
-      split->addWidget(m, 0, Qt::AlignRight);
       map = m;
+
+      QObject::connect(uiState(), &UIState::offroadTransition, m, &MapWindow::offroadTransition);
+
+      m->setFixedWidth(topWidget(this)->width() / 2);
+      split->addWidget(m, 0, Qt::AlignRight);
+
+      // Make map visible after adding to split
+      m->offroadTransition(offroad);
     }
   }
 #endif
