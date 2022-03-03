@@ -363,7 +363,9 @@ void NvgWindow::paintGL() {
 
     drawLaneLines(painter, s->scene);
 
-    if (s->scene.longitudinal_control) {
+    // Outcommented to test drawlead car
+    //if (s->scene.longitudinal_control) 
+    {
       auto leads = (*s->sm)["modelV2"].getModelV2().getLeadsV3();
       if (leads[0].getProb() > .5) {
         drawLead(painter, leads[0], s->scene.lead_vertices[0]);
