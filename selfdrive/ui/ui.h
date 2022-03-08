@@ -19,6 +19,9 @@ const int bdr_s = 30;
 const int header_h = 420;
 const int footer_h = 280;
 
+const QRect speed_sgn_rc(bdr_s * 2, bdr_s * 2.5 + 202, 184, 184);
+const QRect max_speed_rc(bdr_s * 2, bdr_s * 1.5, 184, 202);
+
 const int UI_FREQ = 20;   // Hz
 typedef cereal::CarControl::HUDControl::AudibleAlert AudibleAlert;
 
@@ -33,12 +36,12 @@ struct Alert {
   QString type;
   cereal::ControlsState::AlertSize size;
   AudibleAlert sound;
-
+  
   bool equal(const Alert &a2) {
     return text1 == a2.text1 && text2 == a2.text2 && type == a2.type && sound == a2.sound;
   }
 
-  static Alert get(const SubMaster &sm, uint64_t started_frame) {
+static Alert get(const SubMaster &sm, uint64_t started_frame) {
     const cereal::ControlsState::Reader &cs = sm["controlsState"].getControlsState();
     if (sm.updated("controlsState")) {
       return {cs.getAlertText1().cStr(), cs.getAlertText2().cStr(),
@@ -85,6 +88,16 @@ const QColor bg_colors [] = {
   [STATUS_ALERT] = QColor(0xC9, 0x22, 0x31, 0xf1),
 };
 
+/*
+const QColor tcs_colors [] = {
+  [int(cereal::LongitudinalPlan::VisionTurnControllerState::DISABLED)] =  QColor(0x0, 0x0, 0x0, 0xff),
+  [int(cereal::LongitudinalPlan::VisionTurnControllerState::ENTERING)] = QColor(0xC9, 0x22, 0x31, 0xf1),
+  [int(cereal::LongitudinalPlan::VisionTurnControllerState::TURNING)] = QColor(0xDA, 0x6F, 0x25, 0xf1),
+  [int(cereal::LongitudinalPlan::VisionTurnControllerState::LEAVING)
+  ] = QColor(0x17, 0x86, 0x44, 0xf1),
+};
+*/
+
 typedef struct {
   QPointF v[TRAJECTORY_SIZE * 2];
   int cnt;
@@ -92,7 +105,30 @@ typedef struct {
 
 typedef struct UIScene {
   mat3 view_from_calib;
+  bool world_objects_visible;
+
+  // Debug UI
+  bool show_debug_ui;
+  bool debug_snapshot_enabled;
+  uint64_t display_debug_alert_frame;
+
+  // Speed limit control
+  bool speed_limit_control_enabled;
+  bool speed_limit_perc_offset;
+  int speed_limit_value_offset;
+
+  double last_speed_limit_sign_tap;
   cereal::PandaState::PandaType pandaType;
+
+  int dynamic_lane_profile;
+
+  bool read_params = false;
+  int onroadScreenOff, onroadScreenOffBrightness, osoTimer, brightness, awake;
+  bool touched2 = false;
+
+  cereal::CarState::Reader car_state;
+  cereal::ControlsState::Reader controls_state;
+  cereal::LateralPlan::Reader lateral_plan;
 
   // modelV2
   float lane_line_probs[4];
@@ -107,6 +143,13 @@ typedef struct UIScene {
   float light_sensor, accel_sensor, gyro_sensor;
   bool started, ignition, is_metric, longitudinal_control, end_to_end;
   uint64_t started_frame;
+
+  struct _LateralPlan
+  {
+    bool dynamicLaneProfileStatus;
+  } lateralPlan;
+
+  int dev_ui_enabled;
 } UIScene;
 
 class UIState : public QObject {
@@ -164,6 +207,8 @@ private:
   bool awake = false;
   int interactive_timeout = 0;
   bool ignition_on = false;
+  float accel_prev = 0;
+  float gyro_prev = 0;
   int last_brightness = 0;
   FirstOrderFilter brightness_filter;
   QFuture<void> brightness_future;
