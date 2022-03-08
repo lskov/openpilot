@@ -150,7 +150,7 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
   //auto longitudinal_plan = sm["longitudinalPlan"].getLongitudinalPlan();
   //const QRect speed_limit_touch_rect = speed_sgn_rc.adjusted(-50, -50, 50, 50);
   //const QRect debug_tap_rect = QRect(rect().center().x() - 200, rect().center().y() - 200, 400, 400);
-  const QRect dev_ui_touch_rect = max_speed_rc;
+  //const QRect dev_ui_touch_rect = max_speed_rc;
 
   /*
   if (longitudinal_plan.getSpeedLimit() > 0.0 && speed_limit_touch_rect.contains(e->x(), e->y())) {
@@ -163,7 +163,8 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
     propagate_event = false;
   }
   else */ 
-  if (s->scene.show_debug_ui && dev_ui_touch_rect.contains(e->x(), e->y())) {
+  //if (s->scene.show_debug_ui && dev_ui_touch_rect.contains(e->x(), e->y()) {
+  if (s->scene.show_debug_ui ) {
     s->scene.dev_ui_enabled = s->scene.dev_ui_enabled + 1;
     if (s->scene.dev_ui_enabled > 2) {
       s->scene.dev_ui_enabled = 0;
@@ -343,14 +344,16 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
 
 // OnroadHud
 OnroadHud::OnroadHud(QWidget *parent) : QWidget(parent) {
-  engage_img = QPixmap("../assets/img_chffr_wheel.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-  dm_img = QPixmap("../assets/img_driver_face.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-  how_img = QPixmap("../assets/img_hands_on_wheel.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-  map_img = QPixmap("../assets/img_world_icon.png").scaled(subsign_img_size, subsign_img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-  left_img = QPixmap("../assets/img_turn_left_icon.png").scaled(subsign_img_size, subsign_img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-  right_img = QPixmap("../assets/img_turn_right_icon.png").scaled(subsign_img_size, subsign_img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-  mads_imgs[0] = QPixmap("../assets/img_mads_off.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-  mads_imgs[1] = QPixmap("../assets/img_mads_on.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  engage_img = loadPixmap("../assets/img_chffr_wheel.png", {img_size, img_size});
+  dm_img = loadPixmap("../assets/img_driver_face.png", {img_size, img_size});
+  // engage_img = QPixmap("../assets/img_chffr_wheel.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  // dm_img = QPixmap("../assets/img_driver_face.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  // how_img = QPixmap("../assets/img_hands_on_wheel.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  // map_img = QPixmap("../assets/img_world_icon.png").scaled(subsign_img_size, subsign_img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  // left_img = QPixmap("../assets/img_turn_left_icon.png").scaled(subsign_img_size, subsign_img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  // right_img = QPixmap("../assets/img_turn_right_icon.png").scaled(subsign_img_size, subsign_img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  // mads_imgs[0] = QPixmap("../assets/img_mads_off.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  // mads_imgs[1] = QPixmap("../assets/img_mads_on.png").scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
 
   connect(this, &OnroadHud::valueChanged, [=] { update(); });
 }
@@ -498,6 +501,7 @@ void OnroadHud::paintEvent(QPaintEvent *event) {
   configFont(p, "Open Sans", 66, "Regular");
   drawText(p, rect().center().x(), 290, speedUnit, 200);
 
+/*
   if (engageable) {
     if (showDebugUI && showVTC) {
       drawVisionTurnControllerUI(p, rect().right() - 184 - bdr_s, int(bdr_s * 1.5), 184, vtcColor, vtcSpeed, 100);
@@ -529,6 +533,7 @@ void OnroadHud::paintEvent(QPaintEvent *event) {
       drawStandstillTimer(p, rect().right() - 650, 30 + 160 + 250);
     }
   }
+  */
 
   // dm icon
   if (!hideDM) {
@@ -537,8 +542,8 @@ void OnroadHud::paintEvent(QPaintEvent *event) {
   }
 
   // MADS icon
-  drawMadsIcon(p, rect().right() - radius / 2 - bdr_s * 2 - 184, radius / 2 + int(bdr_s * 1.5),
-           madsEnabled ? suspended ? mads_imgs[0] : mads_imgs[1] : mads_imgs[0], QColor(75, 75, 75, 75), 1.0);
+  //drawMadsIcon(p, rect().right() - radius / 2 - bdr_s * 2 - 184, radius / 2 + int(bdr_s * 1.5),
+  //         madsEnabled ? suspended ? mads_imgs[0] : mads_imgs[1] : mads_imgs[0], QColor(75, 75, 75, 75), 1.0);
 
   // Bottom bar road name
   if (showDebugUI && !roadName.isEmpty()) {
@@ -647,6 +652,7 @@ void OnroadHud::drawSpeedSign(QPainter &p, QRect rc, const QString &speed_limit,
   }
 }
 
+/*
 void OnroadHud::drawTrunSpeedSign(QPainter &p, QRect rc, const QString &turn_speed, const QString &sub_text,
                                   int curv_sign, bool is_active) {
   const QColor border_color = is_active ? QColor(255, 0, 0, 255) : QColor(0, 0, 0, 50);
@@ -709,6 +715,7 @@ void OnroadHud::drawMadsIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg,
   p.drawPixmap(x - img_size / 2, y - img_size / 2, img); // img_size == 266x266
   p.setOpacity(1.0);
 }
+*/
 
 void OnroadHud::drawColoredText(QPainter &p, int x, int y, const QString &text, QColor &color) {
   QFontMetrics fm(p.font());
