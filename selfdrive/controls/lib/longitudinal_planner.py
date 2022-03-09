@@ -13,6 +13,7 @@ from selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import LongitudinalMpc
 from selfdrive.controls.lib.longitudinal_mpc_lib.long_mpc import T_IDXS as T_IDXS_MPC
 from selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX, CONTROL_N
 #from selfdrive.swaglog import cloudlog
+#from common.params import Params
 
 LON_MPC_STEP = 0.2  # first step is 0.2s
 AWARENESS_DECEL = -0.2  # car smoothly decel at .2m/s^2 when user is distracted
@@ -51,14 +52,22 @@ class Planner:
 
     self.a_desired = init_a
     self.v_desired_filter = FirstOrderFilter(init_v, 2.0, DT_MDL)
+    self.alpha = np.exp(-DT_MDL / 2.0)
 
     self.v_desired_trajectory = np.zeros(CONTROL_N)
     self.a_desired_trajectory = np.zeros(CONTROL_N)
     self.j_desired_trajectory = np.zeros(CONTROL_N)
     self.solverExecutionTime = 0.0
 
+    self.cruise_source = 'cruise'
+    #self.vision_turn_controller = VisionTurnController(CP)
+    #self.speed_limit_controller = SpeedLimitController()
+    #self.events = Events()
+    #self.turn_speed_controller = TurnSpeedController()
+
   def update(self, sm):
     v_ego = sm['carState'].vEgo
+    a_ego = sm['carState'].aEgo
 
     v_cruise_kph = sm['controlsState'].vCruise
     v_cruise_kph = min(v_cruise_kph, V_CRUISE_MAX)
@@ -67,7 +76,7 @@ class Planner:
     long_control_state = sm['controlsState'].longControlState
     force_slow_decel = sm['controlsState'].forceDecel
 
-    # Reset current state when not engaged, or user is controlling the speed
+# Reset current state when not engaged, or user is controlling the speed
     reset_state = long_control_state == LongCtrlState.off
     reset_state = reset_state or sm['carState'].gasPressed
 
@@ -76,7 +85,7 @@ class Planner:
 
     if reset_state:
       self.v_desired_filter.x = v_ego
-      self.a_desired = 0.0
+      self.a_desired = a_ego
 
     # Prevent divergence, smooth in current v_ego
     self.v_desired_filter.x = max(0.0, self.v_desired_filter.update(v_ego))
@@ -132,7 +141,7 @@ class Planner:
     longitudinalPlan.jerks = self.j_desired_trajectory.tolist()
 
     longitudinalPlan.hasLead = sm['radarState'].leadOne.status
-    #longitudinalPlan.longitudinalPlanSource = self.mpc.source
+    longitudinalPlan.longitudinalPlanSource = self.mpc.source if self.mpc.source != 'cruise' else self.cruise_source
     longitudinalPlan.fcw = self.fcw
 
     longitudinalPlan.solverExecutionTime = self.mpc.solve_time

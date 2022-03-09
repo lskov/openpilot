@@ -40,6 +40,7 @@ def manager_init() -> None:
     ("CompletedTrainingVersion", "0"),
     ("HasAcceptedTerms", "0"),
     ("OpenpilotEnabledToggle", "1"),
+    ("DynamicLaneProfile", "2"),
     ("DevUI", "2"),
     ("ShowDebugUI", "1"),
   ]

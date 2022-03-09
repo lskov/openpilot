@@ -210,7 +210,7 @@ static void update_state(UIState *s) {
 
 void ui_update_params(UIState *s) {
   s->scene.is_metric = Params().getBool("IsMetric");
-
+/*
     if (!s->scene.read_params) {
     s->scene.brightness = std::stoi(Params().get("BrightnessControl"));
     s->scene.onroadScreenOff = std::stoi(Params().get("OnroadScreenOff"));
@@ -225,7 +225,7 @@ void ui_update_params(UIState *s) {
     } else {
       s->scene.osoTimer = -1;
     }
-  }
+  }*/
 }
 
 void UIState::updateStatus() {
@@ -254,7 +254,7 @@ void UIState::updateStatus() {
       scene.speed_limit_perc_offset = Params().getBool("SpeedLimitPercOffset");
       scene.debug_snapshot_enabled = Params().getBool("EnableDebugSnapshot");
       scene.dev_ui_enabled = std::stoi(Params().get("DevUI"));
-      scene.speed_limit_value_offset = std::stoi(Params().get("SpeedLimitValueOffset"));
+      //scene.speed_limit_value_offset = std::stoi(Params().get("SpeedLimitValueOffset"));
     }
     // Invisible until we receive a calibration message.
     scene.world_objects_visible = false;
@@ -267,7 +267,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
   sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
     "pandaStates", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman",
-    "lateralPlan", "longitudinalPlan", "liveMapData", "gpsLocationExternal", "wideRoadCameraState",
+    "lateralPlan", /* "longitudinalPlan" , "liveMapData",*/ "gpsLocationExternal", "wideRoadCameraState",
   });
 
   Params params;

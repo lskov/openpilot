@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <sstream>
 #include <QString>
+#include <QMouseEvent>
 
 #include "selfdrive/common/timing.h"
 #include "selfdrive/ui/qt/util.h"
@@ -150,7 +151,7 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
   //auto longitudinal_plan = sm["longitudinalPlan"].getLongitudinalPlan();
   //const QRect speed_limit_touch_rect = speed_sgn_rc.adjusted(-50, -50, 50, 50);
   //const QRect debug_tap_rect = QRect(rect().center().x() - 200, rect().center().y() - 200, 400, 400);
-  //const QRect dev_ui_touch_rect = max_speed_rc;
+  const QRect dev_ui_touch_rect = max_speed_rc;
 
   /*
   if (longitudinal_plan.getSpeedLimit() > 0.0 && speed_limit_touch_rect.contains(e->x(), e->y())) {
@@ -163,8 +164,9 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
     propagate_event = false;
   }
   else */ 
-  //if (s->scene.show_debug_ui && dev_ui_touch_rect.contains(e->x(), e->y()) {
-  if (s->scene.show_debug_ui ) {
+  if (s->scene.show_debug_ui && dev_ui_touch_rect.contains(e->x(), e->y())) {
+  //if (s->scene.show_debug_ui && dev_ui_touch_rect.contains(e->x(), e->y() {
+  //if (s->scene.show_debug_ui ) {
     s->scene.dev_ui_enabled = s->scene.dev_ui_enabled + 1;
     if (s->scene.dev_ui_enabled > 2) {
       s->scene.dev_ui_enabled = 0;
@@ -378,8 +380,8 @@ void OnroadHud::updateState(const UIState &s) {
   //setProperty("hideDM", cs->getAlertSize() != cereal::ControlsState::AlertSize::NONE);
   setProperty("status", s.status);
   //setProperty("is_brakelight_on", sm["carState"].getCarState().getBrakeLights());
-  //setProperty("madsEnabled", sm["controlsState"].getControlsState().getMadsEnabled());
-  //setProperty("suspended", sm["controlsState"].getControlsState().getSuspended());
+  setProperty("madsEnabled", sm["controlsState"].getControlsState().getMadsEnabled());
+  setProperty("suspended", sm["controlsState"].getControlsState().getSuspended());
 
   // update engageability and DM icons at 2Hz
   if (sm.frame % (UI_FREQ / 2) == 0) {
@@ -454,18 +456,18 @@ void OnroadHud::updateState(const UIState &s) {
   setProperty("lead_status", leadOne.getStatus());
   setProperty("angleSteers", carState.getSteeringAngleDeg());
   setProperty("steerAngleDesired", sm["controlsState"].getControlsState().getLateralControlState().getPidState().getSteeringAngleDesiredDeg());
-  //setProperty("distanceTraveled", sm["controlsState"].getControlsState().getDistanceTraveled());
+  setProperty("distanceTraveled", sm["controlsState"].getControlsState().getDistanceTraveled());
   setProperty("devUiEnabled", s.scene.dev_ui_enabled);
   setProperty("gpsAccuracy", gpsLocationExternal.getAccuracy());
-  setProperty("altitude", gpsLocationExternal.getAltitude());
+  setProperty("saltitude", gpsLocationExternal.getAltitude());
   setProperty("vEgo", carState.getVEgo());
   setProperty("aEgo", carState.getAEgo());
   setProperty("steeringTorqueEps", carState.getSteeringTorqueEps());
   setProperty("bearingAccuracyDeg", gpsLocationExternal.getBearingAccuracyDeg());
   setProperty("bearingDeg", gpsLocationExternal.getBearingDeg());
 
-  //setProperty("standStill", carState.getStandStill());
-  //setProperty("standstillElapsedTime", sm["lateralPlan"].getLateralPlan().getStandstillElapsed());
+  setProperty("standStill", carState.getStandStill());
+  setProperty("standstillElapsedTime", sm["lateralPlan"].getLateralPlan().getStandstillElapsed());
 }
 
 void OnroadHud::paintEvent(QPaintEvent *event) {
@@ -1074,15 +1076,16 @@ void NvgWindow::updateFrameMat(int w, int h) {
 
 // shane's colored lane line
 void NvgWindow::drawLaneLines(QPainter &painter, const UIScene &scene) {
-  if (!scene.end_to_end) {
-  //int steerOverride = (*s->sm)["carState"].getCarState().getSteeringPressed();
-  //bool madsEnabled = (*s->sm)["controlsState"].getControlsState().getMadsEnabled();
-  //bool suspended = (*s->sm)["controlsState"].getControlsState().getSuspended();
+  //if (!scene.end_to_end) {
+  UIState *s = uiState();
+  int steerOverride = (*s->sm)["carState"].getCarState().getSteeringPressed();
+  bool madsEnabled = (*s->sm)["controlsState"].getControlsState().getMadsEnabled();
+  bool suspended = (*s->sm)["controlsState"].getControlsState().getSuspended();
   
-  //if (!scene.lateralPlan.dynamicLaneProfileStatus) {
+  if (!scene.lateralPlan.dynamicLaneProfileStatus) {
     // lanelines
     for (int i = 0; i < std::size(scene.lane_line_vertices); ++i) {
-   /*   if (i == 1 || i == 2) {
+      if (i == 1 || i == 2) {
         // TODO: can we just use the projected vertices somehow?
         const cereal::ModelDataV2::XYZTData::Reader &line = (*s->sm)["modelV2"].getModelV2().getLaneLines()[i];
         const float default_pos = 1.4;  // when lane poly isn't available
@@ -1090,9 +1093,9 @@ void NvgWindow::drawLaneLines(QPainter &painter, const UIScene &scene) {
         float hue = 332.5 * lane_pos - 332.5;  // equivalent to {1.4, 1.0}: {133, 0} (green to red)
         hue = std::fmin(133, fmax(0, hue)) / 360.;  // clip and normalize
         painter.setBrush(QColor::fromHslF(hue, 1.0, 0.50, scene.lane_line_probs[i]));
-      } else {*/
+      } else {
         painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, scene.lane_line_probs[i]));
-      //}
+      }
       painter.drawPolygon(scene.lane_line_vertices[i].v, scene.lane_line_vertices[i].cnt);
     }
     // road edges
@@ -1102,10 +1105,10 @@ void NvgWindow::drawLaneLines(QPainter &painter, const UIScene &scene) {
     }
   }
   // paint path
-  QLinearGradient bg(0, height(), 0, height() / 4);
-  bg.setColorAt(0, scene.end_to_end ? redColor() : QColor(255, 255, 255));
-  bg.setColorAt(1, scene.end_to_end ? redColor(0) : QColor(255, 255, 255, 0));
-  /*
+  // QLinearGradient bg(0, height(), 0, height() / 4);
+  // bg.setColorAt(0, scene.end_to_end ? redColor() : QColor(255, 255, 255));
+  // bg.setColorAt(1, scene.end_to_end ? redColor(0) : QColor(255, 255, 255, 0));
+  
   QLinearGradient bg(0, height(), 0, height() / 4);
   if (madsEnabled) {
     if (steerOverride && !suspended) {
@@ -1122,7 +1125,7 @@ void NvgWindow::drawLaneLines(QPainter &painter, const UIScene &scene) {
     bg.setColorAt(0, QColor(255, 255, 255));
     bg.setColorAt(1, QColor(255, 255, 255, 0));
   }
-  */
+  
   painter.setBrush(bg);
   painter.drawPolygon(scene.track_vertices.v, scene.track_vertices.cnt);
 }
