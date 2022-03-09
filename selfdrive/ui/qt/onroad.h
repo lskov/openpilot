@@ -207,6 +207,7 @@ protected:
   inline QColor blackColor(int alpha = 255) { return QColor(0, 0, 0, alpha); }
   inline QColor greenColor(int alpha = 255) { return QColor(49, 201, 34, alpha); }
   inline QColor graceBlueColor(int alpha = 255) { return QColor (34, 49, 201, alpha); }
+  inline QColor whiteColor(int alpha = 255) { return QColor(255, 255, 255, alpha); }
   double prev_draw_t = 0;
 
 signals:
