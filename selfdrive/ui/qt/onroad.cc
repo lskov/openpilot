@@ -466,7 +466,7 @@ void OnroadHud::updateState(const UIState &s) {
   setProperty("bearingAccuracyDeg", gpsLocationExternal.getBearingAccuracyDeg());
   setProperty("bearingDeg", gpsLocationExternal.getBearingDeg());
 
-  setProperty("standStill", carState.getStandStill());
+  //setProperty("standStill", carState.getStandStill());
   setProperty("standstillElapsedTime", sm["lateralPlan"].getLateralPlan().getStandstillElapsed());
 }
 
