@@ -658,6 +658,14 @@ class Controls:
     controlsState.startMonoTime = int(start_time * 1e9)
     controlsState.forceDecel = bool(force_decel)
     controlsState.canErrorCounter = self.can_rcv_error_counter
+    controlsState.madsEnabled = CS.lfaEnabled or CS.accMainEnabled or CS.lkasEnabled
+    controlsState.cruiseEnabled = CS.cruiseState.enabled
+    controlsState.suspended = (CS.brakePressed and CS.disengageByBrake) or \
+                               (self.enabled and (CS.lfaEnabled or CS.accMainEnabled or CS.lkasEnabled) and not
+                               (self.active and (not CS.steerWarning) and (not CS.steerError) and
+                               (CS.vEgo > self.CP.minSteerSpeed) and (CS.lfaEnabled or CS.accMainEnabled or CS.lkasEnabled) and
+                               ((not CS.belowLaneChangeSpeed) or ((not (((self.sm.frame - self.last_blinker_frame) * DT_CTRL) < 1.0))))))
+    controlsState.distanceTraveled = self.distance_traveled
 
     lat_tuning = self.CP.lateralTuning.which()
     if self.joystick_mode:
