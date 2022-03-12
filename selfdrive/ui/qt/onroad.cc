@@ -30,13 +30,6 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   hud = new OnroadHud(this);
   road_view_layout->addWidget(hud);
 
-  // buttons = new ButtonsWindow(this);
-  // QObject::connect(this, &OnroadWindow::updateStateSignal, buttons, &ButtonsWindow::updateState);
-  // QObject::connect(nvg, &NvgWindow::resizeSignal, [=] (int w) {
-  //   buttons->setFixedWidth(w);
-  // });
-  // stacked_layout->addWidget(buttons);
-
   QWidget * split_wrapper = new QWidget;
   split = new QHBoxLayout(split_wrapper);
   split->setContentsMargins(0, 0, 0, 0);
@@ -232,20 +225,17 @@ void OnroadHud::updateState(const UIState &s) {
 
   // update engageability and DM icons at 2Hz
   if (sm.frame % (UI_FREQ / 2) == 0) {
-    //const auto howState = sm["driverMonitoringState"].getDriverMonitoringState().getHandsOnWheelState();
-
     setProperty("engageable", cs.getEngageable() || cs.getEnabled());
     setProperty("dmActive", sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode());
-
     setProperty("showDebugUI", s.scene.show_debug_ui);
   }
 
-  const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
+  //const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
   const auto carState = sm["carState"].getCarState();
   const auto gpsLocationExternal = sm["gpsLocationExternal"].getGpsLocationExternal();
-  setProperty("lead_d_rel", leadOne.getDRel());
-  setProperty("lead_v_rel", leadOne.getVRel());
-  setProperty("lead_status", leadOne.getStatus());
+  setProperty("lead_d_rel", sm["radarState"].getRadarState().getLeadOne().getDRel());
+  setProperty("lead_v_rel", sm["radarState"].getRadarState().getLeadOne().getVRel());
+  setProperty("lead_status", sm["radarState"].getRadarState().getLeadOne().getStatus());
   setProperty("angleSteers", carState.getSteeringAngleDeg());
   setProperty("steerAngleDesired", sm["controlsState"].getControlsState().getLateralControlState().getPidState().getSteeringAngleDesiredDeg());
   setProperty("devUiEnabled", s.scene.dev_ui_enabled);
@@ -256,6 +246,7 @@ void OnroadHud::updateState(const UIState &s) {
   setProperty("steeringTorqueEps", carState.getSteeringTorqueEps());
   setProperty("bearingAccuracyDeg", gpsLocationExternal.getBearingAccuracyDeg());
   setProperty("bearingDeg", gpsLocationExternal.getBearingDeg());
+  //setProperty("suspended", sm["controlsState"].getControlsState().get<Suspended(>));
 }
 
 void OnroadHud::paintEvent(QPaintEvent *event) {
@@ -337,15 +328,15 @@ void OnroadHud::drawSpeedText(QPainter &p, int x, int y, const QString &text, QC
   p.drawText(real_rect.x(), real_rect.bottom(), text);
 }
 
-// void OnroadHud::drawCenteredText(QPainter &p, int x, int y, const QString &text, QColor color) {
-//   QFontMetrics fm(p.font());
-//   QRect init_rect = fm.boundingRect(text);
-//   QRect real_rect = fm.boundingRect(init_rect, 0, text);
-//   real_rect.moveCenter({x, y});
+void OnroadHud::drawCenteredText(QPainter &p, int x, int y, const QString &text, QColor color) {
+  QFontMetrics fm(p.font());
+  QRect init_rect = fm.boundingRect(text);
+  QRect real_rect = fm.boundingRect(init_rect, 0, text);
+  real_rect.moveCenter({x, y});
 
-//   p.setPen(color);
-//   p.drawText(real_rect, Qt::AlignCenter, text);
-// }
+  p.setPen(color);
+  p.drawText(real_rect, Qt::AlignCenter, text);
+}
 
 void OnroadHud::drawIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg, float opacity) {
   p.setPen(Qt::NoPen);
@@ -496,7 +487,7 @@ void OnroadHud::drawRightDevUi(QPainter &p, int x, int y) {
     char val_str[16];
     QColor valueColor = QColor(255, 255, 255, 255);
 
-    if (madsEnabled && !suspended) {
+    if (engageable) {
       // Red if large steering angle
       // Orange if moderate steering angle
       if (std::fabs(angleSteers) > 50) {
