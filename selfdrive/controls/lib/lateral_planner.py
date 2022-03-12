@@ -1,4 +1,6 @@
 import numpy as np
+
+from common.params import Params
 from common.realtime import sec_since_boot, DT_MDL
 from common.numpy_fast import interp
 from selfdrive.swaglog import cloudlog
@@ -6,6 +8,7 @@ from selfdrive.controls.lib.lateral_mpc_lib.lat_mpc import LateralMpc
 from selfdrive.controls.lib.drive_helpers import CONTROL_N, MPC_COST_LAT, LAT_MPC_N, CAR_ROTATION_RADIUS
 from selfdrive.controls.lib.lane_planner import LanePlanner, TRAJECTORY_SIZE
 from selfdrive.controls.lib.desire_helper import DesireHelper
+#from selfdrive.config import Conversions as CV
 import cereal.messaging as messaging
 from cereal import log
 
@@ -20,11 +23,31 @@ class LateralPlanner:
     self.steer_rate_cost = CP.steerRateCost
     self.solution_invalid_cnt = 0
 
+    self.dynamic_lane_profile = int(Params().get("DynamicLaneProfile", encoding="utf8"))
+    self.dynamic_lane_profile_status = False
+    # self.dynamic_lane_profile_status_buffer = False
+
+    # self.lane_change_timer = 0.0
+
+    # self.lane_change_state = LaneChangeState.off
+    # self.lane_change_direction = LaneChangeDirection.none
+    # self.lane_change_timer = 0.0
+    # self.lane_change_ll_prob = 1.0
+    # self.keep_pulse_timer = 0.0
+    # self.prev_one_blinker = False
+    # self.desire = log.LateralPlan.Desire.none
+
     self.path_xyz = np.zeros((TRAJECTORY_SIZE, 3))
     self.path_xyz_stds = np.ones((TRAJECTORY_SIZE, 3))
     self.plan_yaw = np.zeros((TRAJECTORY_SIZE,))
     self.t_idxs = np.arange(TRAJECTORY_SIZE)
     self.y_pts = np.zeros(TRAJECTORY_SIZE)
+    self.d_path_w_lines_xyz = np.zeros((TRAJECTORY_SIZE, 3))
+
+    self.second = 0.0
+
+    self.standstill_elapsed = 0.0
+    self.stand_still = False
 
     self.lat_mpc = LateralMpc()
     self.reset_mpc(np.zeros(4))
@@ -34,6 +57,12 @@ class LateralPlanner:
     self.lat_mpc.reset(x0=self.x0)
 
   def update(self, sm):
+    self.second += DT_MDL
+    if self.second > 1.0:
+      self.use_lanelines = not Params().get_bool("EndToEndToggle")
+      self.dynamic_lane_profile = int(Params().get("DynamicLaneProfile", encoding="utf8"))
+      self.second = 0.0
+    self.stand_still = sm['carState'].standStill
     v_ego = sm['carState'].vEgo
     measured_curvature = sm['controlsState'].curvature
 
@@ -101,7 +130,7 @@ class LateralPlanner:
     plan_solution_valid = self.solution_invalid_cnt < 2
     plan_send = messaging.new_message('lateralPlan')
     plan_send.valid = sm.all_alive_and_valid(service_list=['carState', 'controlsState', 'modelV2'])
-
+    
     lateralPlan = plan_send.lateralPlan
     lateralPlan.laneWidth = float(self.LP.lane_width)
     lateralPlan.dPathPoints = self.y_pts.tolist()
@@ -119,5 +148,15 @@ class LateralPlanner:
     lateralPlan.useLaneLines = self.use_lanelines
     lateralPlan.laneChangeState = self.DH.lane_change_state
     lateralPlan.laneChangeDirection = self.DH.lane_change_direction
+
+    lateralPlan.dynamicLaneProfile = bool(self.dynamic_lane_profile_status)
+    lateralPlan.dPathWLinesX = [float(x) for x in self.d_path_w_lines_xyz[:, 0]]
+    lateralPlan.dPathWLinesY = [float(y) for y in self.d_path_w_lines_xyz[:, 1]]
+
+    if self.stand_still:
+      self.standstill_elapsed += DT_MDL
+    else:
+      self.standstill_elapsed = 0.0
+    lateralPlan.standstillElapsed = int(self.standstill_elapsed)
 
     pm.send('lateralPlan', plan_send)

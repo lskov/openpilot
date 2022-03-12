@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <string>
 
 #include <QtConcurrent>
 
@@ -109,7 +110,18 @@ static void update_state(UIState *s) {
   SubMaster &sm = *(s->sm);
   UIScene &scene = s->scene;
 
+  if (sm.updated("modelV2")) {
+    update_model(s, sm["modelV2"].getModelV2());
+  }
+  if (sm.updated("radarState")) {
+    std::optional<cereal::ModelDataV2::XYZTData::Reader> line;
+    if (sm.rcv_frame("modelV2") > 0) {
+      line = sm["modelV2"].getModelV2().getPosition();
+    }
+    //update_leads(s, sm["radarState"].getRadarState(), line);
+  }
   if (sm.updated("liveCalibration")) {
+    scene.world_objects_visible = true;
     auto rpy_list = sm["liveCalibration"].getLiveCalibration().getRpyCalib();
     Eigen::Vector3d rpy;
     rpy << rpy_list[0], rpy_list[1], rpy_list[2];
@@ -188,10 +200,32 @@ static void update_state(UIState *s) {
     scene.light_sensor = std::clamp<float>(1.0 - (ev / max_ev), 0.0, 1.0);
   }
   scene.started = sm["deviceState"].getDeviceState().getStarted() && scene.ignition;
+  /*
+  if (sm.updated("lateralPlan")) {
+    auto data = sm["lateralPlan"].getLateralPlan();
+
+    scene.lateralPlan.dynamicLaneProfileStatus = data.getDynamicLaneProfile();
+  }*/
 }
 
 void ui_update_params(UIState *s) {
   s->scene.is_metric = Params().getBool("IsMetric");
+/*
+    if (!s->scene.read_params) {
+    s->scene.brightness = std::stoi(Params().get("BrightnessControl"));
+    s->scene.onroadScreenOff = std::stoi(Params().get("OnroadScreenOff"));
+    s->scene.onroadScreenOffBrightness = std::stoi(Params().get("OnroadScreenOffBrightness"));
+
+    if (s->scene.onroadScreenOff > 0) {
+      s->scene.osoTimer = s->scene.onroadScreenOff * 60 * UI_FREQ;
+    } else if (s->scene.onroadScreenOff == 0) {
+      s->scene.osoTimer = 30 * UI_FREQ;
+    } else if (s->scene.onroadScreenOff == -1) {
+      s->scene.osoTimer = 15 * UI_FREQ;
+    } else {
+      s->scene.osoTimer = -1;
+    }
+  }*/
 }
 
 void UIState::updateStatus() {
@@ -208,13 +242,22 @@ void UIState::updateStatus() {
   }
 
   // Handle onroad/offroad transition
-  if (scene.started != started_prev || sm->frame == 1) {
+   if (scene.started != started_prev || sm->frame == 1) {
     if (scene.started) {
       status = STATUS_DISENGAGED;
       scene.started_frame = sm->frame;
       scene.end_to_end = Params().getBool("EndToEndToggle");
       wide_camera = Hardware::TICI() ? Params().getBool("EnableWideCamera") : false;
+      scene.dynamic_lane_profile = std::stoi(Params().get("DynamicLaneProfile"));
+      scene.show_debug_ui = Params().getBool("ShowDebugUI");
+      scene.speed_limit_control_enabled = Params().getBool("SpeedLimitControl");
+      scene.speed_limit_perc_offset = Params().getBool("SpeedLimitPercOffset");
+      scene.debug_snapshot_enabled = Params().getBool("EnableDebugSnapshot");
+      scene.dev_ui_enabled = std::stoi(Params().get("DevUI"));
+      //scene.speed_limit_value_offset = std::stoi(Params().get("SpeedLimitValueOffset"));
     }
+    // Invisible until we receive a calibration message.
+    scene.world_objects_visible = false;
     started_prev = scene.started;
     emit offroadTransition(!scene.started);
   }
@@ -224,7 +267,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
   sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
     "pandaStates", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman",
-    "wideRoadCameraState",
+    "lateralPlan", "longitudinalPlan" ,/* "liveMapData",*/ "gpsLocationExternal", "wideRoadCameraState",
   });
 
   Params params;
@@ -291,14 +334,24 @@ void Device::updateBrightness(const UIState &s) {
 
     // Scale back to 10% to 100%
     clipped_brightness = std::clamp(100.0f * clipped_brightness, 10.0f, 100.0f);
+/*
+    if (s.scene.onroadScreenOff != -2 && s.scene.touched2) {
+      sleep_time = s.scene.osoTimer;
+    } else if (s.scene.controls_state.getAlertSize() != cereal::ControlsState::AlertSize::NONE && s.scene.onroadScreenOff != -2) {
+      sleep_time = s.scene.osoTimer;
+    } else if (sleep_time > 0 && s.scene.onroadScreenOff != -2) {
+      sleep_time--;
+    } else if (s.scene.started && sleep_time == -1 && s.scene.onroadScreenOff != -2) {
+      sleep_time = s.scene.osoTimer;
+    }*/
   }
 
   int brightness = brightness_filter.update(clipped_brightness);
   if (!awake) {
     brightness = 0;
-  }
+ }
 
-  if (brightness != last_brightness) {
+ if (brightness != last_brightness) {
     if (!brightness_future.isRunning()) {
       brightness_future = QtConcurrent::run(Hardware::set_brightness, brightness);
       last_brightness = brightness;
