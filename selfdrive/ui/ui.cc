@@ -193,22 +193,6 @@ static void update_state(UIState *s) {
 
 void ui_update_params(UIState *s) {
   s->scene.is_metric = Params().getBool("IsMetric");
-/*
-    if (!s->scene.read_params) {
-    s->scene.brightness = std::stoi(Params().get("BrightnessControl"));
-    s->scene.onroadScreenOff = std::stoi(Params().get("OnroadScreenOff"));
-    s->scene.onroadScreenOffBrightness = std::stoi(Params().get("OnroadScreenOffBrightness"));
-
-    if (s->scene.onroadScreenOff > 0) {
-      s->scene.osoTimer = s->scene.onroadScreenOff * 60 * UI_FREQ;
-    } else if (s->scene.onroadScreenOff == 0) {
-      s->scene.osoTimer = 30 * UI_FREQ;
-    } else if (s->scene.onroadScreenOff == -1) {
-      s->scene.osoTimer = 15 * UI_FREQ;
-    } else {
-      s->scene.osoTimer = -1;
-    }
-  }*/
 }
 
 void UIState::updateStatus() {

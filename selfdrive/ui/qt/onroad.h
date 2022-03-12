@@ -10,21 +10,6 @@
 
 // ***** onroad widgets *****
 
-// class ButtonsWindow : public QWidget {
-//   Q_OBJECT
-
-// public:
-//   ButtonsWindow(QWidget* parent = 0);
-
-// private:
-//   QPushButton *dlpBtn;
-
-//   const QStringList dlpBtnColors = {"#007d00", "#c92231", "#7d007d"};
-
-// public slots:
-//   void updateState(const UIState &s);
-// };
-
 class OnroadHud : public QWidget {
   Q_OBJECT
   Q_PROPERTY(QString speed MEMBER speed NOTIFY valueChanged);
@@ -35,32 +20,7 @@ class OnroadHud : public QWidget {
   Q_PROPERTY(bool dmActive MEMBER dmActive NOTIFY valueChanged);
   Q_PROPERTY(bool hideDM MEMBER hideDM NOTIFY valueChanged);
   Q_PROPERTY(int status MEMBER status NOTIFY valueChanged);
-  Q_PROPERTY(bool is_brakelight_on MEMBER is_brakelight_on NOTIFY valueChanged);
-  Q_PROPERTY(bool madsEnabled MEMBER madsEnabled NOTIFY valueChanged);
-  Q_PROPERTY(bool suspended MEMBER suspended NOTIFY valueChanged);
-
-  Q_PROPERTY(bool showHowAlert MEMBER showHowAlert NOTIFY valueChanged);
-  Q_PROPERTY(bool howWarning MEMBER howWarning NOTIFY valueChanged);
-
-  Q_PROPERTY(bool showVTC MEMBER showVTC NOTIFY valueChanged);
-  Q_PROPERTY(QString vtcSpeed MEMBER vtcSpeed NOTIFY valueChanged);
-  //Q_PROPERTY(QColor vtcColor MEMBER vtcColor NOTIFY valueChanged);
   Q_PROPERTY(bool showDebugUI MEMBER showDebugUI NOTIFY valueChanged);
-
-  Q_PROPERTY(QString roadName MEMBER roadName NOTIFY valueChanged);
-
-  Q_PROPERTY(bool showSpeedLimit MEMBER showSpeedLimit NOTIFY valueChanged);
-  Q_PROPERTY(QString speedLimit MEMBER speedLimit NOTIFY valueChanged);
-  Q_PROPERTY(QString slcSubText MEMBER slcSubText NOTIFY valueChanged);
-  Q_PROPERTY(float slcSubTextSize MEMBER slcSubTextSize NOTIFY valueChanged);
-  Q_PROPERTY(bool mapSourcedSpeedLimit MEMBER mapSourcedSpeedLimit NOTIFY valueChanged);
-  Q_PROPERTY(bool slcActive MEMBER slcActive NOTIFY valueChanged);
-
-  Q_PROPERTY(bool showTurnSpeedLimit MEMBER showTurnSpeedLimit NOTIFY valueChanged);
-  Q_PROPERTY(QString turnSpeedLimit MEMBER turnSpeedLimit NOTIFY valueChanged);
-  Q_PROPERTY(QString tscSubText MEMBER tscSubText NOTIFY valueChanged);
-  Q_PROPERTY(bool tscActive MEMBER tscActive NOTIFY valueChanged);
-  Q_PROPERTY(int curveSign MEMBER curveSign NOTIFY valueChanged);
 
   Q_PROPERTY(int lead_status MEMBER lead_status NOTIFY valueChanged);
   Q_PROPERTY(float lead_d_rel MEMBER lead_d_rel NOTIFY valueChanged);
@@ -209,10 +169,9 @@ protected:
   inline QColor graceBlueColor(int alpha = 255) { return QColor (34, 49, 201, alpha); }
   inline QColor whiteColor(int alpha = 255) { return QColor(255, 255, 255, alpha); }
   double prev_draw_t = 0;
-
-signals:
-  void resizeSignal(int w);
-};
+  
+  signals:
+  void resizeSignal(int w);};
 
 // container for all onroad widgets
 class OnroadWindow : public QWidget {
@@ -228,7 +187,6 @@ private:
   OnroadHud *hud;
   OnroadAlerts *alerts;
   NvgWindow *nvg;
-  //ButtonsWindow *buttons;
   QColor bg = bg_colors[STATUS_DISENGAGED];
   QWidget *map = nullptr;
   QHBoxLayout* split;
