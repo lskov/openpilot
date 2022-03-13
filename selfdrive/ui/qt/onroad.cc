@@ -230,12 +230,14 @@ void OnroadHud::updateState(const UIState &s) {
     setProperty("showDebugUI", s.scene.show_debug_ui);
   }
 
-  //const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
+  const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
   const auto carState = sm["carState"].getCarState();
   const auto gpsLocationExternal = sm["gpsLocationExternal"].getGpsLocationExternal();
-  setProperty("lead_d_rel", sm["radarState"].getRadarState().getLeadOne().getDRel());
-  setProperty("lead_v_rel", sm["radarState"].getRadarState().getLeadOne().getVRel());
-  setProperty("lead_status", sm["radarState"].getRadarState().getLeadOne().getStatus());
+
+  setProperty("lead_d_rel", leadOne.getDRel());
+  setProperty("lead_v_rel", leadOne.getVRel());
+  
+  setProperty("lead_status", leadOne.getStatus());
   setProperty("angleSteers", carState.getSteeringAngleDeg());
   setProperty("steerAngleDesired", sm["controlsState"].getControlsState().getLateralControlState().getPidState().getSteeringAngleDesiredDeg());
   setProperty("devUiEnabled", s.scene.dev_ui_enabled);
@@ -294,16 +296,16 @@ void OnroadHud::paintEvent(QPaintEvent *event) {
              dm_img, QColor(0, 0, 0, 70), dmActive ? 1.0 : 0.2);
   }
 
-  // Right Dev UI
-  QRect rc2(rect().right() - (bdr_s * 2), bdr_s * 1.5, 184, 202);
+  // Right Dev UI 
+  QRect rc2(rect().right() - (bdr_s * 2),  rect().bottom() - footer_h / 2, 184, 202);
   if (showDebugUI) {
     if (devUiEnabled == 1) {
-      drawRightDevUi(p, rect().right() - 184 - bdr_s * 2, bdr_s * 2 + rc2.height());
-      drawRightDevUiBorder(p, rect().right() - 184 - bdr_s * 2, bdr_s * 2 + rc2.height());
+      drawRightDevUi(p, rect().right() - 184 - bdr_s * 2, rect().bottom() - footer_h / 2 - 184 - bdr_s * 3 - rc2.height());
+      drawRightDevUiBorder(p, rect().right() - 184 - bdr_s * 2, rect().bottom() - footer_h / 2 - 184 - bdr_s * 3 - rc2.height());
     } else if (devUiEnabled == 2) {
-      drawRightDevUi(p, rect().right() - 184 - bdr_s * 2, bdr_s * 2 + rc2.height());
-      drawRightDevUi2(p, rect().right() - 184 - bdr_s * 2 - 184, bdr_s * 2 + rc2.height());
-      drawRightDevUiBorder(p, rect().right() - 184 - bdr_s * 2 - 184, bdr_s * 2 + rc2.height());
+      drawRightDevUi(p, rect().right() - 184 - bdr_s * 2, rect().bottom() - footer_h / 2 - 184 - bdr_s * 3 - rc2.height());
+      drawRightDevUi2(p, rect().right() - 184 - bdr_s * 2 - 184, rect().bottom() - footer_h / 2 - 184 - bdr_s * 3 - rc2.height());
+      drawRightDevUiBorder(p, rect().right() - 184 - bdr_s * 2 - 184, rect().bottom() - footer_h / 2 - 184 - bdr_s * 3 - rc2.height());
     }
   }
 }
@@ -645,6 +647,7 @@ void OnroadHud::drawRightDevUiBorder(QPainter &p, int x, int y) {
     rw *= 2;
   }
   QRect ldu(x, y, rw, rh);
+  p.setBrush(QColor(0, 0, 0, 100));
   p.drawRoundedRect(ldu, 20, 20);
 }
 
@@ -688,19 +691,25 @@ void NvgWindow::drawLaneLines(QPainter &painter, const UIScene &scene) {
   if (!scene.end_to_end) {
     // lanelines
     for (int i = 0; i < std::size(scene.lane_line_vertices); ++i) {
-      if (i == 1 || i == 2) {
-        // TODO: can we just use the projected vertices somehow?
-        const cereal::ModelDataV2::XYZTData::Reader &line = (*s->sm)["modelV2"].getModelV2().getLaneLines()[i];
-        const float default_pos = 1.4;  // when lane poly isn't available
-        const float lane_pos = line.getY().size() > 0 ? std::abs(line.getY()[5]) : default_pos;  // get redder when line is closer to car
-        float hue = 332.5 * lane_pos - 332.5;  // equivalent to {1.4, 1.0}: {133, 0} (green to red)
-        hue = std::fmin(133, fmax(0, hue)) / 360.;  // clip and normalize
-        painter.setBrush(QColor::fromHslF(hue, 0.73, 0.64, scene.lane_line_probs[i]));
-      } else {
+      if (scene.dev_ui_enabled == 0){
         painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, scene.lane_line_probs[i]));
+      }     
+      else {
+        if (i == 1 || i == 2) {
+          // TODO: can we just use the projected vertices somehow?
+          const cereal::ModelDataV2::XYZTData::Reader &line = (*s->sm)["modelV2"].getModelV2().getLaneLines()[i];
+          const float default_pos = 1.4;  // when lane poly isn't available
+          const float lane_pos = line.getY().size() > 0 ? std::abs(line.getY()[5]) : default_pos;  // get redder when line is closer to car
+          float hue = 332.5 * lane_pos - 332.5;  // equivalent to {1.4, 1.0}: {133, 0} (green to red)
+          hue = std::fmin(133, fmax(0, hue)) / 360.;  // clip and normalize
+          painter.setBrush(QColor::fromHslF(hue, 0.73, 0.64, scene.lane_line_probs[i]));
+        } else {
+          painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, scene.lane_line_probs[i]));
+        }
       }
       painter.drawPolygon(scene.lane_line_vertices[i].v, scene.lane_line_vertices[i].cnt);
     }
+  
     // road edges
     for (int i = 0; i < std::size(scene.road_edge_vertices); ++i) {
       painter.setBrush(QColor::fromRgbF(1.0, 0, 0, std::clamp<float>(1.0 - scene.road_edge_stds[i], 0.0, 1.0)));
@@ -710,18 +719,23 @@ void NvgWindow::drawLaneLines(QPainter &painter, const UIScene &scene) {
 
   // paint path
   QLinearGradient bg(0, height(), 0, height() / 4);
-  if ((*s->sm)["controlsState"].getControlsState().getEnabled()) {
-    const cereal::ModelDataV2::XYZTData::Reader &pos = (*s->sm)["modelV2"].getModelV2().getPosition();
-    const float lat_pos = pos.getY().size() > 0 ? std::abs(pos.getY()[14] - pos.getY()[0]) : 0;  // 14 is 1.91406 (subtract initial pos to not consider offset)
-    float hue = lat_pos * -39.46 + 148;  // interp from {0, 4.5} -> {148, 0}
-    hue = (hue - 360. * floor(hue / 360.)) / 360.;  // scale and wrap around
-    bg.setColorAt(0, QColor::fromHslF(hue, .94, .51, 1.));
-    bg.setColorAt(1, QColor::fromHslF(hue, .73, .49, 100./255.));
+  if (scene.dev_ui_enabled == 0){
+    bg.setColorAt(0, scene.end_to_end ? redColor() : whiteColor());
+    bg.setColorAt(1, scene.end_to_end ? redColor(0) : whiteColor(0));
   } else {
-    bg.setColorAt(0, scene.end_to_end ? redColor() : QColor(255, 255, 255));
-    bg.setColorAt(1, scene.end_to_end ? redColor(0) : QColor(255, 255, 255, 0));
+    if ((*s->sm)["controlsState"].getControlsState().getEnabled()) {
+      const cereal::ModelDataV2::XYZTData::Reader &pos = (*s->sm)["modelV2"].getModelV2().getPosition();
+      const float lat_pos = pos.getY().size() > 0 ? std::abs(pos.getY()[14] - pos.getY()[0]) : 0;  // 14 is 1.91406 (subtract initial pos to not consider offset)
+      float hue = lat_pos * -39.46 + 148;  // interp from {0, 4.5} -> {148, 0}
+      hue = (hue - 360. * floor(hue / 360.)) / 360.;  // scale and wrap around
+      bg.setColorAt(0, QColor::fromHslF(hue, .94, .51, 1.));
+      bg.setColorAt(1, QColor::fromHslF(hue, .73, .49, 100./255.));
+    } else {
+      bg.setColorAt(0, scene.end_to_end ? redColor() : QColor(255, 255, 255));
+      bg.setColorAt(1, scene.end_to_end ? redColor(0) : QColor(255, 255, 255, 0));
+    }
   }
-
+ 
   painter.setBrush(bg);
   painter.drawPolygon(scene.track_vertices.v, scene.track_vertices.cnt);
 }
