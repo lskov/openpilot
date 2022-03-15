@@ -647,6 +647,7 @@ void OnroadHud::drawRightDevUiBorder(QPainter &p, int x, int y) {
     rw *= 2;
   }
   QRect ldu(x, y, rw, rh);
+  p.setCompositionMode(QPainter::CompositionMode_DestinationOver);
   p.setBrush(QColor(0, 0, 0, 100));
   p.drawRoundedRect(ldu, 20, 20);
 }
