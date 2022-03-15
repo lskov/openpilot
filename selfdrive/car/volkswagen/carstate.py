@@ -81,9 +81,17 @@ class CarState(CarStateBase):
 
     # Consume blind-spot monitoring info/warning LED states, if available.
     # Infostufe: BSM LED on, Warnung: BSM LED flashing
+    self.rightStandziele = False
+    self.leftStandziele = False
+    self.rightKolonne = False
+    self.leftKolonne = False
     if self.CP.enableBsm:
       ret.leftBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_li"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_li"])
       ret.rightBlindspot = bool(ext_cp.vl["SWA_01"]["SWA_Infostufe_SWA_re"]) or bool(ext_cp.vl["SWA_01"]["SWA_Warnung_SWA_re"])
+      self.rightStandziele = bool(ext_cp.vl["SWA_01"]["SWA_Standziele_re"])
+      self.leftStandziele = bool(ext_cp.vl["SWA_01"]["SWA_Standziele_li"])
+      self.rightKolonne = bool(ext_cp.vl["SWA_01"]["SWA_Kolonne_re"])
+      self.leftKolonne = bool(ext_cp.vl["SWA_01"]["SWA_Kolonne_li"])
 
     # Consume factory LDW data relevant for factory SWA (Lane Change Assist)
     # and capture it for forwarding to the blind spot radar controller
@@ -98,13 +106,15 @@ class CarState(CarStateBase):
     ret.stockAeb = bool(ext_cp.vl["ACC_10"]["ANB_Teilbremsung_Freigabe"]) or bool(ext_cp.vl["ACC_10"]["ANB_Zielbremsung_Freigabe"])
 
     # Update ACC radar status.
+    self.acc_04_stock_values = ext_cp.vl["ACC_04"]
+    self.acc_type = ext_cp.vl["ACC_06"]["ACC_Typ"]
     self.tsk_status = pt_cp.vl["TSK_06"]["TSK_Status"]
     if self.tsk_status == 2:
       # ACC okay and enabled, but not currently engaged
       ret.cruiseState.available = True
       ret.cruiseState.enabled = False
     elif self.tsk_status in (3, 4, 5):
-      # ACC okay and enabled, currently regulating speed (3) or driver accel override (4) or overrun coast-down (5)
+      # ACC okay and enabled, currently regulating speed (3) or driver accel override (4) or brake only (5)
       ret.cruiseState.available = True
       ret.cruiseState.enabled = True
     else:
@@ -142,6 +152,9 @@ class CarState(CarStateBase):
 
     # Additional safety checks performed in CarInterface.
     ret.espDisabled = pt_cp.vl["ESP_21"]["ESP_Tastung_passiv"] != 0
+
+    #ret.trafficSign = cam_cp.vl["VZE_01"]['VZE_Verkehrszeichen_1']
+    #ret.radarDistance = ext_cp.vl["ACC_02"]['ACC_Abstandsindex']
 
     return ret
 
@@ -244,10 +257,12 @@ class CarState(CarStateBase):
         ("LDW_Seite_DLCTLC", "LDW_02"),          # Direction of most likely lane departure (left or right)
         ("LDW_DLC", "LDW_02"),                   # Lane departure, distance to line crossing
         ("LDW_TLC", "LDW_02"),                   # Lane departure, time to line crossing
+        ("VZE_Verkehrszeichen_1", "VZE_01", 0)     # Recognized Traffic Sign 01
       ]
       checks += [
         # sig_address, frequency
-        ("LDW_02", 10)      # From R242 Driver assistance camera
+        ("LDW_02", 10),      # From R242 Driver assistance camera
+        ("VZE_01", 10)        # From R242 Driver assistance camera
       ]
     else:
       # Radars are here on CANBUS.cam
@@ -263,20 +278,34 @@ class MqbExtraSignals:
   # Additional signal and message lists for optional or bus-portable controllers
   fwd_radar_signals = [
     ("ACC_Wunschgeschw", "ACC_02"),              # ACC set speed
+    ("ACC_Abstandsindex", "ACC_02", 0),             # ACC radar distance
+    ("ACC_Charisma_FahrPr", "ACC_04"),           # Driving profile selection
+    ("ACC_Charisma_Status", "ACC_04"),           # Driving profile status
+    ("ACC_Charisma_Umschaltung", "ACC_04"),      # Driving profile switching
+    ("ACC_Texte_braking_guard", "ACC_04"),       # Part of ACC driver alerts in instrument cluster
+    ("ACC_Typ", "ACC_06"),                       # Basic vs F2S vs SNG
     ("AWV2_Freigabe", "ACC_10"),                 # FCW brake jerk release
     ("ANB_Teilbremsung_Freigabe", "ACC_10"),     # AEB partial braking release
     ("ANB_Zielbremsung_Freigabe", "ACC_10"),     # AEB target braking release
   ]
   fwd_radar_checks = [
+    ("ACC_06", 50),                                 # From J428 ACC radar control module
     ("ACC_10", 50),                                 # From J428 ACC radar control module
     ("ACC_02", 17),                                 # From J428 ACC radar control module
+    ("ACC_04", 17),                                 # From J428 ACC radar control module
   ]
   bsm_radar_signals = [
     ("SWA_Infostufe_SWA_li", "SWA_01"),          # Blind spot object info, left
     ("SWA_Warnung_SWA_li", "SWA_01"),            # Blind spot object warning, left
     ("SWA_Infostufe_SWA_re", "SWA_01"),          # Blind spot object info, right
     ("SWA_Warnung_SWA_re", "SWA_01"),            # Blind spot object warning, right
+    ("SWA_Kolonne_li", "SWA_01", 0),                # Blind spot object warning, right
+    ("SWA_Kolonne_re", "SWA_01", 0),                # Blind spot object warning, right
+    ("SWA_Standziele_re", "SWA_01", 0),            # Blind spot object warning, right
+    ("SWA_Standziele_li", "SWA_01", 0),            # Blind spot object warning, right
+    ("VZE_Verkehrszeichen_1", "VZE_01", 0)         # Recognized Traffic Sign 01
   ]
   bsm_radar_checks = [
     ("SWA_01", 20),                                 # From J1086 Lane Change Assist
+    ("VZE_01", 10)                                  # From R242 Driver assistance camera
   ]

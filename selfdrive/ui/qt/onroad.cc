@@ -204,6 +204,7 @@ void OnroadHud::updateState(const UIState &s) {
 
 void OnroadHud::paintEvent(QPaintEvent *event) {
   QPainter p(this);
+  UIState *s = uiState();
   p.setRenderHint(QPainter::Antialiasing);
 
   // Header gradient
@@ -234,6 +235,22 @@ void OnroadHud::paintEvent(QPaintEvent *event) {
   drawText(p, rect().center().x(), 210, speed);
   configFont(p, "Open Sans", 66, "Regular");
   drawText(p, rect().center().x(), 290, speedUnit, 200);
+
+  auto leads = (*s->sm)["modelV2"].getModelV2().getLeadsV3();
+  if (leads[0].getProb() > .5) {
+    const float d_rel = leads[0].getX()[0];
+    const float v_rel = leads[0].getV()[0];
+    if (d_rel < 100 && v_rel < 50) {
+      configFont(p, "Open Sans", 70, "Bold");
+    } else {
+      configFont(p, "Open Sans", 66, "Regular");
+    }
+    QString dval = "Dist  " + QString::number(d_rel, 'f', 2);
+    QString vval = "Speed " + QString::number(v_rel * 3.6, 'f', 2);
+    drawText(p, 200, 710, dval);
+    drawText(p, 200, 770, vval);
+  }
+
 
   // engage-ability icon
   if (engageable) {
@@ -368,7 +385,7 @@ void NvgWindow::paintGL() {
 
     drawLaneLines(painter, s->scene);
 
-    if (s->scene.longitudinal_control) {
+    // if (s->scene.longitudinal_control) {
       auto leads = (*s->sm)["modelV2"].getModelV2().getLeadsV3();
       if (leads[0].getProb() > .5) {
         drawLead(painter, leads[0], s->scene.lead_vertices[0]);
@@ -376,7 +393,7 @@ void NvgWindow::paintGL() {
       if (leads[1].getProb() > .5 && (std::abs(leads[1].getX()[0] - leads[0].getX()[0]) > 3.0)) {
         drawLead(painter, leads[1], s->scene.lead_vertices[1]);
       }
-    }
+    // }
   }
 
   double cur_draw_t = millis_since_boot();

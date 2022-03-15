@@ -16,6 +16,8 @@ class CarControllerParams:
   HCA_STEP = 2                   # HCA_01 message frequency 50Hz
   LDW_STEP = 10                  # LDW_02 message frequency 10Hz
   GRA_ACC_STEP = 3               # GRA_ACC_01 message frequency 33Hz
+  ACC_CONTROL_STEP = 2           # ACC_06 message frequency 50Hz
+  ACC_HUD_STEP = 6               # ACC_02 message frequency 16Hz
 
   GRA_VBP_STEP = 100             # Send ACC virtual button presses once a second
   GRA_VBP_COUNT = 16             # Send VBP messages for ~0.5s (GRA_ACC_STEP * 16)
@@ -29,6 +31,9 @@ class CarControllerParams:
   STEER_DRIVER_ALLOWANCE = 80
   STEER_DRIVER_MULTIPLIER = 3    # weight driver torque heavily
   STEER_DRIVER_FACTOR = 1        # from dbc
+
+  ACCEL_MAX = 2.0                # 2.0 m/s max acceleration
+  ACCEL_MIN = -3.5               # 3.5 m/s max deceleration
 
 class CANBUS:
   pt = 0
@@ -563,16 +568,13 @@ FW_VERSIONS = {
   },
   CAR.TRANSPORTER_T61: {
     (Ecu.engine, 0x7e0, None): [
-      b'\xf1\x8704L906057AP\xf1\x891186',
       b'\xf1\x8704L906057N \xf1\x890413',
     ],
     (Ecu.transmission, 0x7e1, None): [
       b'\xf1\x870BT300012G \xf1\x893102',
-      b'\xf1\x870BT300012E \xf1\x893105',
     ],
     (Ecu.srs, 0x715, None): [
       b'\xf1\x872Q0959655AE\xf1\x890506\xf1\x82\02316170411110411--04041704161611152S1411',
-      b'\xf1\x872Q0959655AF\xf1\x890506\xf1\x82\x1316171111110411--04041711121211152S1413',
     ],
     (Ecu.eps, 0x712, None): [
       b'\xf1\x877LA909144F \xf1\x897150\xf1\x82\005323A5519A2',
