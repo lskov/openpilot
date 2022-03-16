@@ -36,9 +36,7 @@ class OnroadHud : public QWidget {
   Q_PROPERTY(float steeringTorqueEps MEMBER steeringTorqueEps NOTIFY valueChanged);
   Q_PROPERTY(float bearingAccuracyDeg MEMBER bearingAccuracyDeg NOTIFY valueChanged);
   Q_PROPERTY(float bearingDeg MEMBER bearingDeg NOTIFY valueChanged);
-
-  Q_PROPERTY(bool standStill MEMBER standStill NOTIFY valueChanged);
-  Q_PROPERTY(int standstillElapsedTime MEMBER standstillElapsedTime NOTIFY valueChanged);
+  Q_PROPERTY(float openpilotActiveTime MEMBER openpilotActiveTime NOTIFY valueChanged);
 
 public:
   explicit OnroadHud(QWidget *parent);
@@ -126,9 +124,8 @@ private:
   float steeringTorqueEps;
   float bearingAccuracyDeg;
   float bearingDeg;
-
-  bool standStill;
-  int standstillElapsedTime;
+  int openpilotActiveTime;
+  uint64_t openpilotEngagedElapsedTime = 0;;
 
 signals:
   void valueChanged();
