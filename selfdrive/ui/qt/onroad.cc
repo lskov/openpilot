@@ -228,8 +228,17 @@ void OnroadHud::updateState(const UIState &s) {
     setProperty("engageable", cs.getEngageable() || cs.getEnabled());
     setProperty("dmActive", sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode());
     setProperty("showDebugUI", s.scene.show_debug_ui);
-  }
 
+    if (cs.getEnabled() ) {
+      uint64_t cur_time = nanos_since_boot() * 1e-9;
+      if (openpilotEngagedElapsedTime == 0)
+        openpilotEngagedElapsedTime = cur_time;
+
+      setProperty("openpilotActiveTime",(int)(cur_time - openpilotEngagedElapsedTime)) ;
+    } else {
+      openpilotEngagedElapsedTime = 0;
+    } 
+  }  
   const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
   const auto carState = sm["carState"].getCarState();
   const auto gpsLocationExternal = sm["gpsLocationExternal"].getGpsLocationExternal();
@@ -514,15 +523,17 @@ void OnroadHud::drawRightDevUi(QPainter &p, int x, int y) {
     char units_str[8];
     QColor valueColor = QColor(255, 255, 255, 255);
 
-    if (speedUnit == "mph") {
-      snprintf(val_str, sizeof(val_str), "%.1f", (distanceTraveled * METER_TO_MILE)); //miles
-      snprintf(units_str, sizeof(units_str), "mi");
-    } else {
-      snprintf(val_str, sizeof(val_str), "%.1f", (distanceTraveled * 0.001)); //kilometers
-      snprintf(units_str, sizeof(units_str), "km");
-    }
+    //if (engageable) {
+    int minute = (int)(openpilotActiveTime / 60);
+    int second = (int)((openpilotActiveTime) - (minute * 60));
 
-    rh += drawDevUiElementRight(p, x, ry, val_str, "TRIP", units_str, valueColor);
+    snprintf(val_str, sizeof(val_str), "%01d:%02d", minute, second);
+    //}
+
+    if (!engageable)
+      valueColor = QColor(255, 188, 0, 255); 
+
+    rh += drawDevUiElementRight(p, x, ry, val_str, "ACTIVE TIME", units_str, valueColor);
     ry = y + rh;
   }
 
