@@ -33,6 +33,7 @@ class OnroadHud : public QWidget {
   Q_PROPERTY(float altitude MEMBER altitude NOTIFY valueChanged);
   Q_PROPERTY(float vEgo MEMBER vEgo NOTIFY valueChanged);
   Q_PROPERTY(float aEgo MEMBER aEgo NOTIFY valueChanged);
+  Q_PROPERTY(float steeringTorque MEMBER steeringTorque NOTIFY valueChanged);
   Q_PROPERTY(float steeringTorqueEps MEMBER steeringTorqueEps NOTIFY valueChanged);
   Q_PROPERTY(float bearingAccuracyDeg MEMBER bearingAccuracyDeg NOTIFY valueChanged);
   Q_PROPERTY(float bearingDeg MEMBER bearingDeg NOTIFY valueChanged);
@@ -122,6 +123,7 @@ private:
   float vEgo;
   float aEgo;
   float steeringTorqueEps;
+  float steeringTorque;
   float bearingAccuracyDeg;
   float bearingDeg;
   int openpilotActiveTime;

@@ -239,14 +239,15 @@ void OnroadHud::updateState(const UIState &s) {
       openpilotEngagedElapsedTime = 0;
     } 
   }  
-  const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
+  //const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
   const auto carState = sm["carState"].getCarState();
   const auto gpsLocationExternal = sm["gpsLocationExternal"].getGpsLocationExternal();
 
-  setProperty("lead_d_rel", leadOne.getDRel());
-  setProperty("lead_v_rel", leadOne.getVRel());
+  setProperty("lead_d_rel", sm["radarState"].getRadarState().getLeadOne().getDRel());
+  //setProperty("lead_v_rel", leadOne.getVRel());
+  setProperty("lead_v_rel", sm["radarState"].getRadarState().getLeadOne().getVRel());
   
-  setProperty("lead_status", leadOne.getStatus());
+  setProperty("lead_status", 1);//sm["radarState"].getRadarState().getLeadOne().getStatus());
   setProperty("angleSteers", carState.getSteeringAngleDeg());
   setProperty("steerAngleDesired", sm["controlsState"].getControlsState().getLateralControlState().getPidState().getSteeringAngleDesiredDeg());
   setProperty("devUiEnabled", s.scene.dev_ui_enabled);
@@ -254,6 +255,7 @@ void OnroadHud::updateState(const UIState &s) {
   setProperty("altitude", gpsLocationExternal.getAltitude());
   setProperty("vEgo", carState.getVEgo());
   setProperty("aEgo", carState.getAEgo());
+  setProperty("steeringTorque", carState.getSteeringTorque());
   setProperty("steeringTorqueEps", carState.getSteeringTorqueEps());
   setProperty("bearingAccuracyDeg", gpsLocationExternal.getBearingAccuracyDeg());
   setProperty("bearingDeg", gpsLocationExternal.getBearingDeg());
@@ -586,7 +588,7 @@ void OnroadHud::drawRightDevUi2(QPainter &p, int x, int y) {
     char val_str[16];
     QColor valueColor = QColor(255, 255, 255, 255);
 
-    snprintf(val_str, sizeof(val_str), "%.1f", std::fabs(steeringTorqueEps));
+    snprintf(val_str, sizeof(val_str), "%.1f", std::fabs(steeringTorque));
 
     rh += drawDevUiElementLeft(p, x, ry, val_str, "EPS TRQ", "N·dm", valueColor);
     ry = y + rh;
