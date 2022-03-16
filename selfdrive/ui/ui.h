@@ -19,6 +19,8 @@ const int bdr_s = 30;
 const int header_h = 420;
 const int footer_h = 280;
 
+const QRect max_speed_rc(bdr_s * 2, bdr_s * 1.5, 184, 202);
+
 const int UI_FREQ = 20;   // Hz
 typedef cereal::CarControl::HUDControl::AudibleAlert AudibleAlert;
 
@@ -33,12 +35,12 @@ struct Alert {
   QString type;
   cereal::ControlsState::AlertSize size;
   AudibleAlert sound;
-
+  
   bool equal(const Alert &a2) {
     return text1 == a2.text1 && text2 == a2.text2 && type == a2.type && sound == a2.sound;
   }
 
-  static Alert get(const SubMaster &sm, uint64_t started_frame) {
+static Alert get(const SubMaster &sm, uint64_t started_frame) {
     const cereal::ControlsState::Reader &cs = sm["controlsState"].getControlsState();
     if (sm.updated("controlsState")) {
       return {cs.getAlertText1().cStr(), cs.getAlertText2().cStr(),
@@ -92,6 +94,12 @@ typedef struct {
 
 typedef struct UIScene {
   mat3 view_from_calib;
+  bool world_objects_visible;
+
+  // Debug UI
+  bool show_debug_ui;
+  int dev_ui_enabled;
+
   cereal::PandaState::PandaType pandaType;
 
   // modelV2
