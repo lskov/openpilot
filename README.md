@@ -1,3 +1,6 @@
+[![selfdrive](https://github.com/lskov/openpilot/actions/workflows/selfdrive_tests.yaml/badge.svg)](https://github.com/lskov/openpilot/actions/workflows/selfdrive_tests.yaml)
+[![tools](https://github.com/lskov/openpilot/actions/workflows/tools_tests.yaml/badge.svg)](https://github.com/lskov/openpilot/actions/workflows/tools_tests.yaml)
+
 ![](https://i.imgur.com/b0ZyIx5.jpg)
 
 Table of Contents
