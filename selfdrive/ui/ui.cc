@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cmath>
-#include <string>
 
 #include <QtConcurrent>
 
@@ -209,17 +208,13 @@ void UIState::updateStatus() {
   }
 
   // Handle onroad/offroad transition
-   if (scene.started != started_prev || sm->frame == 1) {
+  if (scene.started != started_prev || sm->frame == 1) {
     if (scene.started) {
       status = STATUS_DISENGAGED;
       scene.started_frame = sm->frame;
       scene.end_to_end = Params().getBool("EndToEndToggle");
       wide_camera = Hardware::TICI() ? Params().getBool("EnableWideCamera") : false;
-      scene.show_debug_ui = Params().getBool("ShowDebugUI");
-      scene.dev_ui_enabled = std::stoi(Params().get("DevUI"));
-      //scene.speed_limit_value_offset = std::stoi(Params().get("SpeedLimitValueOffset"));
     }
-
     started_prev = scene.started;
     emit offroadTransition(!scene.started);
   }
@@ -229,7 +224,7 @@ UIState::UIState(QObject *parent) : QObject(parent) {
   sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
     "pandaStates", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman",
-    "lateralPlan", "longitudinalPlan" ,/* "liveMapData",*/ "gpsLocationExternal", "wideRoadCameraState",
+    "wideRoadCameraState",
   });
 
   Params params;
@@ -301,9 +296,9 @@ void Device::updateBrightness(const UIState &s) {
   int brightness = brightness_filter.update(clipped_brightness);
   if (!awake) {
     brightness = 0;
- }
+  }
 
- if (brightness != last_brightness) {
+  if (brightness != last_brightness) {
     if (!brightness_future.isRunning()) {
       brightness_future = QtConcurrent::run(Hardware::set_brightness, brightness);
       last_brightness = brightness;
