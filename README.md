@@ -1,5 +1,10 @@
 [![selfdrive](https://github.com/lskov/openpilot/actions/workflows/selfdrive_tests.yaml/badge.svg)](https://github.com/lskov/openpilot/actions/workflows/selfdrive_tests.yaml)
 [![tools](https://github.com/lskov/openpilot/actions/workflows/tools_tests.yaml/badge.svg)](https://github.com/lskov/openpilot/actions/workflows/tools_tests.yaml)
+[![openpilot tests](https://github.com/lskov/openpilot/workflows/openpilot%20tests/badge.svg?event=push)](https://github.com/commaai/openpilot/actions)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/lskov/openpilot.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/commaai/openpilot/alerts/)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/lskov/openpilot.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/lskov/openpilot/context:python)
+[![Language grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/lskov/openpilot.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/lskov/openpilot/context:cpp)
+[![codecov](https://codecov.io/gh/lskov/openpilot/branch/LS-master/graph/badge.svg)](https://codecov.io/gh/commaai/openpilot)
 
 ![](https://i.imgur.com/b0ZyIx5.jpg)
 
