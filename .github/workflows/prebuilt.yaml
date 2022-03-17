@@ -1,7 +1,7 @@
 name: prebuilt
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '* 2 * * *'
 
 env:
   BASE_IMAGE: openpilot-base
@@ -18,7 +18,7 @@ jobs:
     name: build prebuilt
     runs-on: ubuntu-20.04
     timeout-minutes: 60
-    if: github.repository == 'commaai/openpilot'
+    if: github.repository == 'lskov/openpilot'
     env:
       IMAGE_NAME: openpilot-prebuilt
     steps:
