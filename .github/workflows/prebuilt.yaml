@@ -37,6 +37,7 @@ jobs:
         docker pull $DOCKER_REGISTRY/$IMAGE_NAME:latest || true
         docker build --cache-from $DOCKER_REGISTRY/$IMAGE_NAME:latest -t $DOCKER_REGISTRY/$IMAGE_NAME:latest -f Dockerfile.openpilot .
     - name: Push to container registry
+      if: github.repository == 'commaai/openpilot'
       run: |
         $DOCKER_LOGIN
         docker push $DOCKER_REGISTRY/$IMAGE_NAME:latest
