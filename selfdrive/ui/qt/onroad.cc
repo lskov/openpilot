@@ -25,7 +25,7 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
 
   QStackedLayout *road_view_layout = new QStackedLayout;
   road_view_layout->setStackingMode(QStackedLayout::StackAll);
-  nvg = new NvgWindow(VISION_STREAM_RGB_BACK, this);
+  nvg = new NvgWindow(VISION_STREAM_RGB_ROAD, this);
   road_view_layout->addWidget(nvg);
   hud = new OnroadHud(this);
   road_view_layout->addWidget(hud);
@@ -124,7 +124,7 @@ void OnroadWindow::offroadTransition(bool offroad) {
 
   // update stream type
   bool wide_cam = Hardware::TICI() && Params().getBool("EnableWideCamera");
-  nvg->setStreamType(wide_cam ? VISION_STREAM_RGB_WIDE : VISION_STREAM_RGB_BACK);
+  nvg->setStreamType(wide_cam ? VISION_STREAM_RGB_WIDE_ROAD : VISION_STREAM_RGB_ROAD);
 }
 
 void OnroadWindow::paintEvent(QPaintEvent *event) {
@@ -213,7 +213,7 @@ void OnroadHud::updateState(const UIState &s) {
     maxspeed *= KM_TO_MILE;
   }
   QString maxspeed_str = cruise_set ? QString::number(std::nearbyint(maxspeed)) : "N/A";
-  float cur_speed = std::max(0.0, sm["carState"].getCarState().getVEgo() * (s.scene.is_metric ? MS_TO_KPH : MS_TO_MPH));
+  float cur_speed = sm["carState"].getCarState().getVEgo() * (s.scene.is_metric ? MS_TO_KPH : MS_TO_MPH);
 
   setProperty("is_cruise_set", cruise_set);
   setProperty("speed", QString::number(std::nearbyint(cur_speed)));
@@ -228,16 +228,26 @@ void OnroadHud::updateState(const UIState &s) {
     setProperty("engageable", cs.getEngageable() || cs.getEnabled());
     setProperty("dmActive", sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode());
     setProperty("showDebugUI", s.scene.show_debug_ui);
-  }
 
-  const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
+    if (cs.getEnabled() ) {
+      uint64_t cur_time = nanos_since_boot() * 1e-9;
+      if (openpilotEngagedElapsedTime == 0)
+        openpilotEngagedElapsedTime = cur_time;
+
+      setProperty("openpilotActiveTime",(int)(cur_time - openpilotEngagedElapsedTime)) ;
+    } else {
+      openpilotEngagedElapsedTime = 0;
+    } 
+  }  
+  //const auto leadOne = sm["radarState"].getRadarState().getLeadOne();
   const auto carState = sm["carState"].getCarState();
   const auto gpsLocationExternal = sm["gpsLocationExternal"].getGpsLocationExternal();
 
-  setProperty("lead_d_rel", leadOne.getDRel());
-  setProperty("lead_v_rel", leadOne.getVRel());
+  setProperty("lead_d_rel", sm["radarState"].getRadarState().getLeadOne().getDRel());
+  //setProperty("lead_v_rel", leadOne.getVRel());
+  setProperty("lead_v_rel", sm["radarState"].getRadarState().getLeadOne().getVRel());
   
-  setProperty("lead_status", leadOne.getStatus());
+  setProperty("lead_status", 1);//sm["radarState"].getRadarState().getLeadOne().getStatus());
   setProperty("angleSteers", carState.getSteeringAngleDeg());
   setProperty("steerAngleDesired", sm["controlsState"].getControlsState().getLateralControlState().getPidState().getSteeringAngleDesiredDeg());
   setProperty("devUiEnabled", s.scene.dev_ui_enabled);
@@ -245,6 +255,7 @@ void OnroadHud::updateState(const UIState &s) {
   setProperty("altitude", gpsLocationExternal.getAltitude());
   setProperty("vEgo", carState.getVEgo());
   setProperty("aEgo", carState.getAEgo());
+  setProperty("steeringTorque", carState.getSteeringTorque());
   setProperty("steeringTorqueEps", carState.getSteeringTorqueEps());
   setProperty("bearingAccuracyDeg", gpsLocationExternal.getBearingAccuracyDeg());
   setProperty("bearingDeg", gpsLocationExternal.getBearingDeg());
@@ -514,15 +525,17 @@ void OnroadHud::drawRightDevUi(QPainter &p, int x, int y) {
     char units_str[8];
     QColor valueColor = QColor(255, 255, 255, 255);
 
-    if (speedUnit == "mph") {
-      snprintf(val_str, sizeof(val_str), "%.1f", (distanceTraveled * METER_TO_MILE)); //miles
-      snprintf(units_str, sizeof(units_str), "mi");
-    } else {
-      snprintf(val_str, sizeof(val_str), "%.1f", (distanceTraveled * 0.001)); //kilometers
-      snprintf(units_str, sizeof(units_str), "km");
-    }
+    //if (engageable) {
+    int minute = (int)(openpilotActiveTime / 60);
+    int second = (int)((openpilotActiveTime) - (minute * 60));
 
-    rh += drawDevUiElementRight(p, x, ry, val_str, "TRIP", units_str, valueColor);
+    snprintf(val_str, sizeof(val_str), "%01d:%02d", minute, second);
+    //}
+
+    if (!engageable)
+      valueColor = QColor(255, 188, 0, 255); 
+
+    rh += drawDevUiElementRight(p, x, ry, val_str, "ACTIVE TIME", units_str, valueColor);
     ry = y + rh;
   }
 
@@ -575,7 +588,7 @@ void OnroadHud::drawRightDevUi2(QPainter &p, int x, int y) {
     char val_str[16];
     QColor valueColor = QColor(255, 255, 255, 255);
 
-    snprintf(val_str, sizeof(val_str), "%.1f", std::fabs(steeringTorqueEps));
+    snprintf(val_str, sizeof(val_str), "%.1f", std::fabs(steeringTorque));
 
     rh += drawDevUiElementLeft(p, x, ry, val_str, "EPS TRQ", "N·dm", valueColor);
     ry = y + rh;
