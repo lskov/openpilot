@@ -6,20 +6,17 @@ While the roll calibration is a real value that can be estimated, here we assume
 and the image input into the neural network is not corrected for roll.
 '''
 
-import gc
 import os
-import numpy as np
 from typing import NoReturn
-
-from cereal import log
+import numpy as np
 import cereal.messaging as messaging
-from common.conversions import Conversions as CV
+from cereal import log
+from selfdrive.hardware import TICI
 from common.params import Params, put_nonblocking
-from common.realtime import set_realtime_priority
 from common.transformations.model import model_height
 from common.transformations.camera import get_view_frame_from_road_frame
 from common.transformations.orientation import rot_from_euler, euler_from_rot
-from selfdrive.hardware import TICI
+from selfdrive.config import Conversions as CV
 from selfdrive.swaglog import cloudlog
 
 MIN_SPEED_FILTER = 15 * CV.MPH_TO_MS
@@ -194,9 +191,6 @@ class Calibrator():
 
 
 def calibrationd_thread(sm=None, pm=None) -> NoReturn:
-  gc.disable()
-  set_realtime_priority(1)
-
   if sm is None:
     sm = messaging.SubMaster(['cameraOdometry', 'carState'], poll=['cameraOdometry'])
 

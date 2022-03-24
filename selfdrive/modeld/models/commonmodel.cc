@@ -70,3 +70,7 @@ void softmax(const float* input, float* output, size_t len) {
 float sigmoid(float input) {
   return 1 / (1 + expf(-input));
 }
+
+float softplus(float input) {
+  return log1p(expf(input));
+}

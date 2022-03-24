@@ -380,9 +380,7 @@ class Android(HardwareBase):
     os.system('LD_LIBRARY_PATH="" svc power shutdown')
 
   def get_thermal_config(self):
-    # the thermal sensors on the 820 don't have meaningful names
-    return ThermalConfig(cpu=((5, 7, 10, 12), 10), gpu=((16,), 10), mem=(2, 10),
-                         bat=("battery", 1000), ambient=("pa_therm0", 1), pmic=(("pm8994_tz",), 1000))
+    return ThermalConfig(cpu=((5, 7, 10, 12), 10), gpu=((16,), 10), mem=(2, 10), bat=(29, 1000), ambient=(25, 1), pmic=((22,), 1000))
 
   def set_screen_brightness(self, percentage):
     with open("/sys/class/leds/lcd-backlight/brightness", "w") as f:

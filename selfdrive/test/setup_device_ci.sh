@@ -20,47 +20,28 @@ fi
 umount /data/safe_staging/merged/ || true
 sudo umount /data/safe_staging/merged/ || true
 
-export KEYS_PARAM_PATH="/data/params/d/GithubSshKeys"
 if [ -f "/EON" ]; then
-  export KEYS_PATH="/data/data/com.termux/files/home/setup_keys"
-  export CONTINUE_PATH="/data/data/com.termux/files/continue.sh"
-
-  if ! grep -F "$KEYS_PATH" /usr/etc/ssh/sshd_config; then
-    echo "setting up keys"
-    mount -o rw,remount /system
-    sed -i "s,$KEYS_PARAM_PATH,$KEYS_PATH," /usr/etc/ssh/sshd_config
-    mount -o ro,remount /system
-  fi
-
-  # these can get pretty big
   rm -rf /data/core
   rm -rf /data/neoupdate
   rm -rf /data/safe_staging
-else
-  export KEYS_PATH="/usr/comma/setup_keys"
-  export CONTINUE_PATH="/data/continue.sh"
-
-  if ! grep -F "$KEYS_PATH" /etc/ssh/sshd_config; then
-    echo "setting up keys"
-    sudo mount -o rw,remount /
-    sudo systemctl enable ssh
-    sudo sed -i "s,$KEYS_PARAM_PATH,$KEYS_PATH," /etc/ssh/sshd_config
-    sudo mount -o ro,remount /
-  fi
 fi
 
+export KEYS_PATH="/usr/comma/setup_keys"
+export CONTINUE_PATH="/data/continue.sh"
+if [ -f "/EON" ]; then
+  export KEYS_PATH="/data/data/com.termux/files/home/setup_keys"
+  export CONTINUE_PATH="/data/data/com.termux/files/continue.sh"
+fi
 tee $CONTINUE_PATH << EOF
 #!/usr/bin/bash
 
+PARAMS_ROOT="/data/params/d"
+
 while true; do
-  if [ -f /EON ]; then
-    setprop persist.neos.ssh 1
-  else
-    if ! sudo systemctl is-active -q ssh; then
-      sudo systemctl start ssh
-    fi
-  fi
-  sleep 10s
+  mkdir -p \$PARAMS_ROOT
+  cp $KEYS_PATH \$PARAMS_ROOT/GithubSshKeys
+  echo -n 1 > \$PARAMS_ROOT/SshEnabled
+  sleep 1m
 done
 
 sleep infinity
