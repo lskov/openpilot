@@ -24,7 +24,7 @@ class CarInterface(CarInterfaceBase):
       self.cp_ext = self.cp_cam
 
   @staticmethod
-  def get_params(candidate, fingerprint=gen_empty_fingerprint(), car_fw=None, disable_radar=False):
+  def get_params(candidate, fingerprint=gen_empty_fingerprint(), car_fw=None):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint)
     ret.carName = "volkswagen"
     ret.radarOffCan = True
@@ -207,6 +207,8 @@ class CarInterface(CarInterfaceBase):
                                        pcm_enable=not self.CS.CP.openpilotLongitudinalControl)
 
     # Vehicle health and operation safety checks
+    if self.CS.parkingBrakeSet:
+      events.add(EventName.parkBrake)
     if self.CS.tsk_status in (6, 7):
       events.add(EventName.accFaulted)
 
@@ -243,7 +245,7 @@ class CarInterface(CarInterfaceBase):
 
   def apply(self, c):
     hud_control = c.hudControl
-    ret = self.CC.update(c, self.CS, self.frame, self.ext_bus, c.actuators,
+    ret = self.CC.update(c, c.enabled, self.CS, self.frame, self.ext_bus, c.actuators,
                          hud_control.visualAlert,
                          hud_control.leftLaneVisible,
                          hud_control.rightLaneVisible,

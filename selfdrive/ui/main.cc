@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
   setpriority(PRIO_PROCESS, 0, -20);
 
   qInstallMessageHandler(swagLogMessageHandler);
-  initApp(argc, argv);
+  initApp();
 
   if (Hardware::EON()) {
     QSslConfiguration ssl = QSslConfiguration::defaultConfiguration();

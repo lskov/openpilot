@@ -13,8 +13,6 @@ ExitHandler do_exit;
 
 void run_model(DMonitoringModelState &model, VisionIpcClient &vipc_client) {
   PubMaster pm({"driverState"});
-  SubMaster sm({"liveCalibration"});
-  float calib[CALIB_LEN] = {0};
   double last = 0;
 
   while (!do_exit) {
@@ -22,16 +20,8 @@ void run_model(DMonitoringModelState &model, VisionIpcClient &vipc_client) {
     VisionBuf *buf = vipc_client.recv(&extra);
     if (buf == nullptr) continue;
 
-    sm.update(0);
-    if (sm.updated("liveCalibration")) {
-      auto calib_msg = sm["liveCalibration"].getLiveCalibration().getRpyCalib();
-      for (int i = 0; i < CALIB_LEN; i++) {
-        calib[i] = calib_msg[i];
-      }
-    }
-
     double t1 = millis_since_boot();
-    DMonitoringResult res = dmonitoring_eval_frame(&model, buf->addr, buf->width, buf->height, calib);
+    DMonitoringResult res = dmonitoring_eval_frame(&model, buf->addr, buf->width, buf->height);
     double t2 = millis_since_boot();
 
     // send dm packet

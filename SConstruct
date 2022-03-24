@@ -89,6 +89,7 @@ if arch == "aarch64" or arch == "larch64":
     "/usr/local/lib",
     "/usr/lib",
     "/system/vendor/lib64",
+    "/system/comma/usr/lib",
     f"#third_party/acados/{arch}/lib",
   ]
 
@@ -118,26 +119,27 @@ else:
   cxxflags = []
   cpppath = []
 
-  # MacOS
   if arch == "Darwin":
-    brew_prefix = subprocess.check_output(['brew', '--prefix'], encoding='utf8').strip()
     yuv_dir = "mac" if real_arch != "arm64" else "mac_arm64"
     libpath = [
       f"#third_party/libyuv/{yuv_dir}/lib",
-      f"{brew_prefix}/lib",
-      f"{brew_prefix}/Library",
-      f"{brew_prefix}/opt/openssl/lib",
-      f"{brew_prefix}/Cellar",
+      "/usr/local/lib",
+      "/opt/homebrew/lib",
+      "/usr/local/Homebrew/Library",
+      "/usr/local/opt/openssl/lib",
+      "/opt/homebrew/opt/openssl/lib",
+      "/usr/local/Cellar",
       f"#third_party/acados/{arch}/lib",
       "/System/Library/Frameworks/OpenGL.framework/Libraries",
     ]
     cflags += ["-DGL_SILENCE_DEPRECATION"]
     cxxflags += ["-DGL_SILENCE_DEPRECATION"]
     cpppath += [
-      f"{brew_prefix}/include",
-      f"{brew_prefix}/opt/openssl/include",
+      "/opt/homebrew/include",
+      "/usr/local/include",
+      "/usr/local/opt/openssl/include",
+      "/opt/homebrew/opt/openssl/include"
     ]
-  # Linux 86_64
   else:
     libpath = [
       "#third_party/acados/x86_64/lib",
@@ -171,8 +173,8 @@ if arch != "Darwin":
   ldflags += ["-Wl,--as-needed", "-Wl,--no-undefined"]
 
 # Enable swaglog include in submodules
-cflags += ['-DSWAGLOG="\\"selfdrive/common/swaglog.h\\""']
-cxxflags += ['-DSWAGLOG="\\"selfdrive/common/swaglog.h\\""']
+cflags += ["-DSWAGLOG"]
+cxxflags += ["-DSWAGLOG"]
 
 env = Environment(
   ENV=lenv,
@@ -305,11 +307,11 @@ if arch == "Darwin":
   qt_env["FRAMEWORKS"] += [f"Qt{m}" for m in qt_modules] + ["OpenGL"]
   qt_env.AppendENVPath('PATH', os.path.join(qt_env['QTDIR'], "bin"))
 elif arch == "aarch64":
-  qt_env['QTDIR'] = "/usr"
+  qt_env['QTDIR'] = "/system/comma/usr"
   qt_dirs = [
-    f"/usr/include/qt",
+    f"/system/comma/usr/include/qt",
   ]
-  qt_dirs += [f"/usr/include/qt/Qt{m}" for m in qt_modules]
+  qt_dirs += [f"/system/comma/usr/include/qt/Qt{m}" for m in qt_modules]
 
   qt_libs = [f"Qt5{m}" for m in qt_modules]
   qt_libs += ['EGL', 'GLESv3', 'c++_shared']
