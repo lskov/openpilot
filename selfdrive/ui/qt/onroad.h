@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QPushButton>
 
+#include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 #include "selfdrive/ui/ui.h"
 
@@ -153,7 +154,7 @@ class NvgWindow : public CameraViewWidget {
   Q_OBJECT
 
 public:
-  explicit NvgWindow(VisionStreamType type, QWidget* parent = 0) : CameraViewWidget("camerad", type, true, parent) {}
+  explicit NvgWindow(VisionStreamType type, QWidget* parent = 0);
 
 protected:
   void paintGL() override;
@@ -167,10 +168,13 @@ protected:
   inline QColor greenColor(int alpha = 255) { return QColor(49, 201, 34, alpha); }
   inline QColor graceBlueColor(int alpha = 255) { return QColor (34, 49, 201, alpha); }
   inline QColor whiteColor(int alpha = 255) { return QColor(255, 255, 255, alpha); }
+
   double prev_draw_t = 0;
+  FirstOrderFilter fps_filter;
   
   signals:
-  void resizeSignal(int w);};
+  void resizeSignal(int w);
+};
 
 // container for all onroad widgets
 class OnroadWindow : public QWidget {
