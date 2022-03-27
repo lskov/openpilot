@@ -294,7 +294,7 @@ void send_empty_panda_state(PubMaster *pm) {
   pm->send("pandaStates", msg);
 }
 
-bool send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool spoofing_started) {
+std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool spoofing_started) {
   bool ignition_local = false;
 
   // build msg
@@ -304,7 +304,12 @@ bool send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool s
 
   std::vector<health_t> pandaStates;
   for (const auto& panda : pandas){
-    health_t health = panda->get_state();
+    auto health_opt = panda->get_state();
+    if (!health_opt) {
+      return std::nullopt;
+    }
+
+    health_t health = *health_opt;
 
     if (spoofing_started) {
       health.ignition_line_pkt = 1;
@@ -366,7 +371,7 @@ bool send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool s
 
     size_t j = 0;
     for (size_t f = size_t(cereal::PandaState::FaultType::RELAY_MALFUNCTION);
-        f <= size_t(cereal::PandaState::FaultType::INTERRUPT_RATE_TICK); f++) {
+        f <= size_t(cereal::PandaState::FaultType::INTERRUPT_RATE_EXTI); f++) {
       if (fault_bits.test(f)) {
         faults.set(j, cereal::PandaState::FaultType(f));
         j++;
@@ -379,7 +384,12 @@ bool send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool s
 }
 
 void send_peripheral_state(PubMaster *pm, Panda *panda) {
-  health_t pandaState = panda->get_state();
+  auto pandaState_opt = panda->get_state();
+  if (!pandaState_opt) {
+    return;
+  }
+
+  health_t pandaState = *pandaState_opt;
 
   // build msg
   MessageBuilder msg;
@@ -427,7 +437,13 @@ void panda_state_thread(PubMaster *pm, std::vector<Panda *> pandas, bool spoofin
 
     // send out peripheralState
     send_peripheral_state(pm, peripheral_panda);
-    ignition = send_panda_states(pm, pandas, spoofing_started);
+    auto ignition_opt = send_panda_states(pm, pandas, spoofing_started);
+
+    if (!ignition_opt) {
+      continue;
+    }
+
+    ignition = *ignition_opt;
 
     // TODO: make this check fast, currently takes 16ms
     // check if we have new pandas and are offroad
@@ -594,10 +610,19 @@ void pigeon_thread(Panda *panda) {
 }
 
 void boardd_main_thread(std::vector<std::string> serials) {
-  if (serials.size() == 0) serials.push_back("");
-
   PubMaster pm({"pandaStates", "peripheralState"});
   LOGW("attempting to connect");
+
+  if (serials.size() == 0) {
+    // connect to all
+    serials = Panda::list();
+
+    // exit if no pandas are connected
+    if (serials.size() == 0) {
+      LOGW("no pandas found, exiting");
+      return;
+    }
+  }
 
   // connect to all provided serials
   std::vector<Panda *> pandas;

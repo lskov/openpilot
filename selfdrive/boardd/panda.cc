@@ -311,10 +311,10 @@ void Panda::set_ir_pwr(uint16_t ir_pwr) {
   usb_write(0xb0, ir_pwr, 0);
 }
 
-health_t Panda::get_state() {
+std::optional<health_t> Panda::get_state() {
   health_t health {0};
-  usb_read(0xd2, 0, 0, (unsigned char*)&health, sizeof(health));
-  return health;
+  int err = usb_read(0xd2, 0, 0, (unsigned char*)&health, sizeof(health));
+  return err >= 0 ? std::make_optional(health) : std::nullopt;
 }
 
 void Panda::set_loopback(bool loopback) {
@@ -336,6 +336,10 @@ std::optional<std::string> Panda::get_serial() {
 
 void Panda::set_power_saving(bool power_saving) {
   usb_write(0xe7, power_saving, 0);
+}
+
+void Panda::enable_deepsleep() {
+  usb_write(0xfb, 0, 0);
 }
 
 void Panda::set_usb_power_mode(cereal::PeripheralState::UsbPowerMode power_mode) {
