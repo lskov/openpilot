@@ -49,7 +49,7 @@ class CarInterface(CarInterfaceBase):
         ret.networkLocation = NetworkLocation.fwdCamera
       cloudlog.info("MQB: Detected network location: %s", ret.networkLocation)
 
-      if Params().get_bool("DisableRadar") and ret.networkLocation == NetworkLocation.gateway:
+      if Params().get_bool("DisableRadar"): # and ret.networkLocation == NetworkLocation.gateway:
         ret.openpilotLongitudinalControl = True
         ret.safetyConfigs[0].safetyParam |= Panda.FLAG_VOLKSWAGEN_LONGITUDINAL
         if ret.transmissionType == TransmissionType.manual:
