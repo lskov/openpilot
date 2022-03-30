@@ -41,13 +41,17 @@ class CarInterface(CarInterfaceBase):
         ret.transmissionType = TransmissionType.direct
       else:
         ret.transmissionType = TransmissionType.manual
-      cloudlog.info("MQB: Detected transmission type: %s", ret.transmissionType)
+
+      cloudlog.info("############### MQB: Detected transmission type: %s ###############", ret.transmissionType)
+      print("############### MQB: Detected transmission type: %s ###############", ret.transmissionType)
       
       if any(msg in fingerprint[1] for msg in (0x40, 0x86, 0xB2, 0xFD)):  # Airbag_01, LWI_01, ESP_19, ESP_21
         ret.networkLocation = NetworkLocation.gateway
       else:
         ret.networkLocation = NetworkLocation.fwdCamera
-      cloudlog.info("MQB: Detected network location: %s", ret.networkLocation)
+      
+      cloudlog.info("############### MQB: Detected network location: %s ###############", ret.networkLocation)
+      print("############### MQB: Detected network location: %s ###############", ret.networkLocation)
 
       if Params().get_bool("DisableRadar"): # and ret.networkLocation == NetworkLocation.gateway:
         ret.openpilotLongitudinalControl = True
