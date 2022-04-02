@@ -153,8 +153,8 @@ class CarState(CarStateBase):
     # Additional safety checks performed in CarInterface.
     ret.espDisabled = pt_cp.vl["ESP_21"]["ESP_Tastung_passiv"] != 0
 
-    #ret.trafficSign = cam_cp.vl["VZE_01"]['VZE_Verkehrszeichen_1']
-    #ret.radarDistance = ext_cp.vl["ACC_02"]['ACC_Abstandsindex']
+    ret.trafficSign = cam_cp.vl["VZE_01"]['VZE_Verkehrszeichen_1']
+    ret.radarDistance = ext_cp.vl["ACC_02"]['ACC_Abstandsindex']
 
     return ret
 
