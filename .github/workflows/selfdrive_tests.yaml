@@ -77,15 +77,9 @@ jobs:
     - uses: actions/checkout@v2
       with:
         submodules: true
-    - name: Determine pre-existing Homebrew packages
-      if: steps.dependency-cache.outputs.cache-hit != 'true'
-      run: |
-        echo 'EXISTING_CELLAR<<EOF' >> $GITHUB_ENV
-        ls -1 /usr/local/Cellar >> $GITHUB_ENV
-        echo 'EOF' >> $GITHUB_ENV
     - name: Cache dependencies
       id: dependency-cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: |
           ~/.pyenv
@@ -94,7 +88,13 @@ jobs:
           ~/github_brew_cache_entries.txt
           /tmp/scons_cache
         key: macos-${{ hashFiles('tools/mac_setup.sh', 'update_requirements.sh', 'Pipfile*') }}
-        restore-keys: macos-
+        restore-keys: macos-    
+    - name: Determine pre-existing Homebrew packages
+      if: steps.dependency-cache.outputs.cache-hit != 'true'
+      run: |
+        echo 'EXISTING_CELLAR<<EOF' >> $GITHUB_ENV
+        ls -1 /usr/local/Cellar >> $GITHUB_ENV
+        echo 'EOF' >> $GITHUB_ENV
     - name: Brew link restored dependencies
       run: |
         if [ -f ~/github_brew_cache_entries.txt ]; then
@@ -102,7 +102,7 @@ jobs:
             brew link --force "$pkg" # `--force` for keg-only packages
           done < ~/github_brew_cache_entries.txt
         else
-          echo "Cache entries not found"
+          echo ">>> Cache entries not found <<<"
         fi
     - name: Install dependencies
       run: ./tools/mac_setup.sh
