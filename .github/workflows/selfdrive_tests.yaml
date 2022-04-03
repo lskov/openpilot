@@ -127,10 +127,9 @@ jobs:
 
     - name: Install dependencies
       run: |
-      if: steps.dependency.cache.outputs.cache-hit != 'true'
-        echo "> > > > > > Homebrew cache invalid < < < < < <"
-      fi
-      ./tools/mac_setup.sh
+        if: steps.dependency.cache.outputs.cache-hit != 'true'
+          echo "> > > > > > Homebrew cache invalid < < < < < <" 
+        ./tools/mac_setup.sh
 
     - name: Build openpilot
       run: |
