@@ -92,6 +92,8 @@ class CarState(CarStateBase):
       self.leftStandziele = bool(ext_cp.vl["SWA_01"]["SWA_Standziele_li"])
       self.rightKolonne = bool(ext_cp.vl["SWA_01"]["SWA_Kolonne_re"])
       self.leftKolonne = bool(ext_cp.vl["SWA_01"]["SWA_Kolonne_li"])
+      ret.trafficSign = cam_cp.vl["VZE_01"]['VZE_Verkehrszeichen_1']
+      ret.radarDistance = ext_cp.vl["ACC_02"]['ACC_Abstandsindex']
 
     # Consume factory LDW data relevant for factory SWA (Lane Change Assist)
     # and capture it for forwarding to the blind spot radar controller
@@ -152,9 +154,6 @@ class CarState(CarStateBase):
 
     # Additional safety checks performed in CarInterface.
     ret.espDisabled = pt_cp.vl["ESP_21"]["ESP_Tastung_passiv"] != 0
-
-    ret.trafficSign = cam_cp.vl["VZE_01"]['VZE_Verkehrszeichen_1']
-    ret.radarDistance = ext_cp.vl["ACC_02"]['ACC_Abstandsindex']
 
     return ret
 

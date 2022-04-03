@@ -82,9 +82,9 @@ class VolkswagenSpeedlimitsStock:
     #-------------------------------------------------------------------------#
     #      adjust ACC setpoint from sign-based speed limit recognition        #
     #-------------------------------------------------------------------------#
-    if c.hud_control.leadProb > 0:
-        cls.visionDistance = c.hud_control.leadDistance
-        cls.leadSpeed = round(c.hud_control.leadSpeed * 3.6)
+    if c.hudControl.leadProb > 0:
+        cls.visionDistance = c.hudControl.leadDistance
+        cls.leadSpeed = round(c.hudControl.leadSpeed * 3.6)
     else:
         cls.visionDistance = 200
         cls.leadSpeed = 200
@@ -129,11 +129,11 @@ class VolkswagenSpeedlimitsStock:
             if cls.visionDistance < 100:
                 cls.targetSetpoint = cls.currentSpeed - 20
             if cls.visionDistance < 70:
-                cls.targetSetpoint = 40
+                cls.targetSetpoint = 41
             if cls.visionDistance < 50:
-                cls.targetSetpoint = 30
+                cls.targetSetpoint = 31
             if cls.targetSetpoint < 30:
-                cls.targetSetpoint = 30
+                cls.targetSetpoint = 31
             if cls.setpoint > 30:
                 cls.speedAdjustInProgress = True
 

@@ -597,12 +597,13 @@ class Controls:
     hudControl.leadVisible = self.sm['longitudinalPlan'].hasLead
 
     if(len(model_v2.leadsV3) > 0):
-          hudControl.leadDistance = float(model_v2.leadsV3[0].x[0])
-          hudControl.leadSpeed = float(model_v2.leadsV3[0].v[0])
-          hudControl.leadProb = float(model_v2.leadsV3[0].prob)
-        else:
-          hudControl.leadDistance = -1.
-          hudControl.leadProb = 0.
+      hudControl.leadDistance = float(model_v2.leadsV3[0].x[0])
+      hudControl.leadSpeed = float(model_v2.leadsV3[0].v[0])
+      hudControl.leadProb = float(model_v2.leadsV3[0].prob)
+    else:
+      hudControl.leadDistance = -1.
+      hudControl.leadSpeed = -1.
+      hudControl.leadProb = 0.
 
     hudControl.rightLaneVisible = True
     hudControl.leftLaneVisible = True
