@@ -94,10 +94,8 @@ jobs:
         #brew remove --force --ignore-dependencies $(brew list --formula)
 
     - name: Cache dependencies
-      #id: dependency-cache
+      id: dependency-cache
       uses: actions/cache@v3
-      env:
-          cache-name: dependency-cache
       with:
         path: |
           /usr/local/Homebrew         # installation folder of Homebrew
@@ -111,8 +109,8 @@ jobs:
 #          /tmp/scons_cache
 #        key: macos-${{ hashFiles('tools/mac_setup.sh', 'update_requirements.sh', 'Pipfile*') }}
         
-        key: macos-${{ hashFiles('tools/mac_setup.sh')}}
-        restore-keys: macos-
+        key: ${{ runner.OS }}-macos-${{ hashFiles('tools/mac_setup.sh')}}
+        restore-keys: ${{ runner.OS }}-macos-
 
 #   - name: Determine pre-existing Homebrew packages
 #     if: steps.dependency-cache.outputs.cache-hit != 'true'
