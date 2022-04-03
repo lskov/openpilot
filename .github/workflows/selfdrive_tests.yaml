@@ -90,11 +90,14 @@ jobs:
         
         # In order to avoid such cases in the future where we use things we didn't expect to, we'd rather
         # start with a "clean" runner with the bare minimum, and only install the brew packages we require.
-        brew remove --force --ignore-dependencies $(brew list --formula)
+        
+        #brew remove --force --ignore-dependencies $(brew list --formula)
 
     - name: Cache dependencies
-      id: dependency-cache
+      #id: dependency-cache
       uses: actions/cache@v3
+      env:
+          cache-name: dependency-cache
       with:
         path: |
           /usr/local/Homebrew         # installation folder of Homebrew
@@ -105,8 +108,10 @@ jobs:
           /usr/local/lib/python3.8.   # Python3 packages installation
           ~/.pyenv
           ~/.local/share/virtualenvs/
-          /tmp/scons_cache
-        key: macos-${{ hashFiles('tools/mac_setup.sh', 'update_requirements.sh', 'Pipfile*') }}
+#          /tmp/scons_cache
+#        key: macos-${{ hashFiles('tools/mac_setup.sh', 'update_requirements.sh', 'Pipfile*') }}
+        
+        key: macos-${{ hashFiles('tools/mac_setup.sh')}}
         restore-keys: macos-
 
 #   - name: Determine pre-existing Homebrew packages
@@ -126,11 +131,10 @@ jobs:
 #        fi
 
     - name: Install dependencies
-      run: |
-        if [steps.dependency-cache.outputs.cache-hit != 'true']; then
-          echo "> > > > > > Homebrew cache invalid < < < < < <"
-        fi
-        ./tools/mac_setup.sh
+      run: ./tools/mac_setup.sh
+#       if [steps.dependency-cache.outputs.cache-hit != 'true']; then
+#         echo "> > > > > > Homebrew cache invalid < < < < < <"
+#       fi
 
     - name: Build openpilot
       run: |
@@ -216,7 +220,7 @@ jobs:
         submodules: true
     - name: Cache dependencies
       id: dependency-cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: /tmp/comma_download_cache
         key: ${{ hashFiles('.github/workflows/selfdrive_tests.yaml', 'selfdrive/test/test_valgrind_replay.py') }}
