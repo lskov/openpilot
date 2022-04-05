@@ -110,8 +110,8 @@ jobs:
 #          /tmp/scons_cache
 #        key: macos-${{ hashFiles('tools/mac_setup.sh', 'update_requirements.sh', 'Pipfile*') }}
         
-        key: ${{ runner.OS }}10.15-${{ hashFiles('tools/mac_setup.sh')}}
-
+        key: ${{ runner.OS }}-${{ hashFiles('tools/mac_setup.sh')}}
+        restore-keys: ${{ runner.OS }}
 #   - name: Determine pre-existing Homebrew packages
 #     if: steps.dependency-cache.outputs.cache-hit != 'true'
 #     run: |
