@@ -139,6 +139,7 @@ jobs:
         source tools/openpilot_env.sh
         #pipenv run selfdrive/manager/build.py
   
+  
         # cleanup scons cache
         #rm -rf /tmp/scons_cache/
         #pipenv run scons -j$(nproc) --cache-populate
