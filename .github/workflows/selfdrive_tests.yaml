@@ -34,17 +34,17 @@ jobs:
       if: github.ref == 'refs/heads/master' && github.repository == 'commaai/openpilot'
       run: release/check-submodules.sh
     - name: Cache scons
-      id: scons-cache
-      # TODO: Change the version to the released version when https://github.com/actions/cache/pull/489 (or 571) is merged.
-      uses: actions/cache@03e00da99d75a2204924908e1cca7902cafce66b
-      env:
-        CACHE_SKIP_SAVE: true
-      with:
-        path: /tmp/scons_cache
-        key: scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
-        restore-keys: |
-          scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
-          scons-
+      # id: scons-cache
+      # # TODO: Change the version to the released version when https://github.com/actions/cache/pull/489 (or 571) is merged.
+      # uses: actions/cache@03e00da99d75a2204924908e1cca7902cafce66b
+      # env:
+      #   CACHE_SKIP_SAVE: true
+      # with:
+      #   path: /tmp/scons_cache
+      #   key: scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
+      #   restore-keys: |
+      #     scons-${{ hashFiles('.github/workflows/selfdrive_tests.yaml') }}-
+      #     scons-
     - name: Strip non-release files
       run: |
         mkdir $STRIPPED_DIR
@@ -139,7 +139,7 @@ jobs:
         source tools/openpilot_env.sh
         #pipenv run selfdrive/manager/build.py
   
-  
+
         # cleanup scons cache
         #rm -rf /tmp/scons_cache/
         #pipenv run scons -j$(nproc) --cache-populate
