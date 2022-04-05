@@ -33,7 +33,7 @@ jobs:
     - name: Check submodules
       if: github.ref == 'refs/heads/master' && github.repository == 'commaai/openpilot'
       run: release/check-submodules.sh
-    - name: Cache scons
+    #- name: Cache scons
       # id: scons-cache
       # # TODO: Change the version to the released version when https://github.com/actions/cache/pull/489 (or 571) is merged.
       # uses: actions/cache@03e00da99d75a2204924908e1cca7902cafce66b
