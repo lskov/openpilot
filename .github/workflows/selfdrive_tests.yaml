@@ -88,9 +88,14 @@ jobs:
       uses: actions/cache@v2
       with:
         path: |
+          /usr/local/Homebrew         # installation folder of Homebrew
+          /usr/local/Cellar           # installation folder of Homebrew formulae
+          /usr/local/Frameworks       # /usr/local/Cellar - installation folder of Homebrew formulae
+          /usr/local/bin
+          /usr/local/opt
+          /usr/local/lib/python3.8.   # Python3 packages installation
           ~/.pyenv
           ~/.local/share/virtualenvs/
-          /usr/local/Cellar
           ~/github_brew_cache_entries.txt
           /tmp/scons_cache
         key: macos-${{ hashFiles('tools/mac_setup.sh', 'update_requirements.sh', 'Pipfile*') }}
