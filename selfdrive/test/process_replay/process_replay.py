@@ -231,7 +231,7 @@ def ublox_rcv_callback(msg):
   elif (msg_class, msg_id) in {(2, 1 * 16 + 5), (10, 9)}:
     return ["ubloxGnss"]
   else:
-     return []
+    return []
 
 
 CONFIGS = [
@@ -346,6 +346,7 @@ def setup_env(simulation=False):
   params.clear_all()
   params.put_bool("OpenpilotEnabledToggle", True)
   params.put_bool("Passive", False)
+  params.put_bool("DisengageOnAccelerator", True)
 
   os.environ["NO_RADAR_SLEEP"] = "1"
   os.environ["REPLAY"] = "1"

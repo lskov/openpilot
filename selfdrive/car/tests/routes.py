@@ -11,6 +11,7 @@ from selfdrive.car.subaru.values import CAR as SUBARU
 from selfdrive.car.toyota.values import CAR as TOYOTA
 from selfdrive.car.volkswagen.values import CAR as VOLKSWAGEN
 from selfdrive.car.tesla.values import CAR as TESLA
+from selfdrive.car.body.values import CAR as COMMA
 
 # TODO: add routes for these cars
 non_tested_cars = [
@@ -25,6 +26,8 @@ non_tested_cars = [
 TestRoute = namedtuple('TestRoute', ['route', 'car_fingerprint'])
 
 routes = [
+  TestRoute("d6ac8ebdb47bc549|2022-03-31--13-10-06", COMMA.BODY),
+
   TestRoute("0c94aa1e1296d7c6|2021-05-05--19-48-37", CHRYSLER.JEEP_CHEROKEE),
   TestRoute("91dfedae61d7bd75|2021-05-22--20-07-52", CHRYSLER.JEEP_CHEROKEE_2019),
   TestRoute("420a8e183f1aed48|2020-03-05--07-15-29", CHRYSLER.PACIFICA_2017_HYBRID),
@@ -78,6 +81,7 @@ routes = [
   TestRoute("c75a59efa0ecd502|2021-03-11--20-52-55", HYUNDAI.KIA_SELTOS),
   TestRoute("5b7c365c50084530|2020-04-15--16-13-24", HYUNDAI.SONATA),
   TestRoute("b2a38c712dcf90bd|2020-05-18--18-12-48", HYUNDAI.SONATA_LF),
+  TestRoute("fb3fd42f0baaa2f8|2022-03-30--15-25-05", HYUNDAI.TUCSON_DIESEL_2019),
   TestRoute("5875672fc1d4bf57|2020-07-23--21-33-28", HYUNDAI.KIA_SORENTO),
   TestRoute("9c917ba0d42ffe78|2020-04-17--12-43-19", HYUNDAI.PALISADE),
   TestRoute("fa8db5869167f821|2021-06-10--22-50-10", HYUNDAI.IONIQ_PHEV),
@@ -102,6 +106,7 @@ routes = [
   TestRoute("715ac05b594e9c59|2021-10-27--23-24-56", HYUNDAI.GENESIS_G70_2020),
 
   TestRoute("00c829b1b7613dea|2021-06-24--09-10-10", TOYOTA.ALPHARD_TSS2),
+  TestRoute("912119ebd02c7a42|2022-03-19--07-24-50", TOYOTA.ALPHARDH_TSS2),
   TestRoute("000cf3730200c71c|2021-05-24--10-42-05", TOYOTA.AVALON),
   TestRoute("0bb588106852abb7|2021-05-26--12-22-01", TOYOTA.AVALON_2019),
   TestRoute("87bef2930af86592|2021-05-30--09-40-54", TOYOTA.AVALONH_2019),
