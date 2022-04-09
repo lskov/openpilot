@@ -49,7 +49,7 @@ class CarState(CarStateBase):
     ret.gasPressed = ret.gas > 0
     ret.brake = pt_cp.vl["ESP_05"]["ESP_Bremsdruck"] / 250.0  # FIXME: this is pressure in Bar, not sure what OP expects
     ret.brakePressed = bool(pt_cp.vl["ESP_05"]["ESP_Fahrer_bremst"])
-    ret.brakeHoldActive = bool(pt_cp.vl["ESP_05"]["ESP_Autohold_aktiv"])
+    ret.brakeHoldActive = bool(pt_cp.vl["ESP_05"]["ESP_Autohold_Standby"])
     ret.parkingBrake = bool(pt_cp.vl["Kombi_01"]["KBI_Handbremse"])  # FIXME: need to include an EPB check as well
     self.esp_hold_confirmation = pt_cp.vl["ESP_21"]["ESP_Haltebestaetigung"]
 
@@ -179,7 +179,7 @@ class CarState(CarStateBase):
       ("ESP_Haltebestaetigung", "ESP_21"),       # ESP hold confirmation
       ("KBI_MFA_v_Einheit_02", "Einheiten_01"),  # MPH vs KMH speed display
       ("KBI_Handbremse", "Kombi_01"),            # Manual handbrake applied
-      ("ESP_Autohold_aktiv", "ESP_05"),          # Autohold hold car 
+      ("ESP_Autohold_Standby", "ESP_05"),          # Autohold hold car 
       ("TSK_Status", "TSK_06"),                  # ACC engagement status from drivetrain coordinator
       ("GRA_Hauptschalter", "GRA_ACC_01"),       # ACC button, on/off
       ("GRA_Abbrechen", "GRA_ACC_01"),           # ACC button, cancel
