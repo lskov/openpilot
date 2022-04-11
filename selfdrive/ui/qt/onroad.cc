@@ -797,7 +797,8 @@ void NvgWindow::paintGL() {
 
     drawLaneLines(painter, s->scene);
 
-    if (s->scene.longitudinal_control) {
+    // FIXME Should be included when long are available
+    //if (s->scene.longitudinal_control) {
       auto leads = (*s->sm)["modelV2"].getModelV2().getLeadsV3();
       if (leads[0].getProb() > .5) {
         drawLead(painter, leads[0], s->scene.lead_vertices[0]);
@@ -805,7 +806,7 @@ void NvgWindow::paintGL() {
       if (leads[1].getProb() > .5 && (std::abs(leads[1].getX()[0] - leads[0].getX()[0]) > 3.0)) {
         drawLead(painter, leads[1], s->scene.lead_vertices[1]);
       }
-    }
+    //}
   }
 
   double cur_draw_t = millis_since_boot();
