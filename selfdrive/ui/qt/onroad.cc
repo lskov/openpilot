@@ -525,15 +525,10 @@ void OnroadHud::drawRightDevUi(QPainter &p, int x, int y) {
     char units_str[8];
     QColor valueColor = QColor(255, 255, 255, 255);
 
-    //if (engageable) {
     int minute = (int)(openpilotActiveTime / 60);
     int second = (int)((openpilotActiveTime) - (minute * 60));
 
     snprintf(val_str, sizeof(val_str), "%01d:%02d", minute, second);
-    //}
-
-    if (!engageable)
-      valueColor = QColor(255, 188, 0, 255); 
 
     rh += drawDevUiElementRight(p, x, ry, val_str, "ACTIVE TIME", units_str, valueColor);
     ry = y + rh;
