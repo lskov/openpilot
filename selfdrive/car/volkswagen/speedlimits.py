@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from selfdrive.controls.lib.drive_helpers import update_v_cruise
 
 class VolkswagenSpeedlimits:

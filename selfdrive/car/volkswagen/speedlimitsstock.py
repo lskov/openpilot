@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import cereal.messaging as messaging
 from common.realtime import sec_since_boot
 from selfdrive.car.volkswagen.values import BUTTON_STATES
