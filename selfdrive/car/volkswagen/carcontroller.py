@@ -147,7 +147,7 @@ class CarController():
 
     if self.CP.pcmCruise:
       if frame > self.graMsgStartFramePrev + P.GRA_VBP_STEP / 2:
-        self.graButtonStatesToSend = VolkswagenSpeedlimitsStock.update_cruise_buttons(CS, enabled, self.graMsgSentCount)
+        self.graButtonStatesToSend = VolkswagenSpeedlimitsStock.update_cruise_buttons(CS, c, self.graMsgSentCount)
       if frame > self.graMsgStartFramePrev + P.GRA_VBP_STEP:
         if c.cruiseControl.cancel:
           # Cancel ACC if it's engaged with OP disengaged.

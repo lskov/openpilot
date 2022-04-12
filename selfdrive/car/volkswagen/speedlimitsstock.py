@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import cereal.messaging as messaging
 from common.realtime import sec_since_boot
 from selfdrive.car.volkswagen.values import BUTTON_STATES
 
@@ -22,8 +21,6 @@ class VolkswagenSpeedlimitsStock:
   BtnPressCounter = 0
   wasEngagedBefore = False
   leadSpeed = 0
-  sm = messaging.SubMaster(['radarState'])
-
 
   # configurable toggles
   smooth_adjust_option = True
@@ -80,15 +77,14 @@ class VolkswagenSpeedlimitsStock:
 
 
   @classmethod
-  def update_speed_limit(cls, CS, enabled, graMsgSentCount):
+  def update_speed_limit(cls, CS, c, graMsgSentCount):
     graButtonStatesToSend = None
     #-------------------------------------------------------------------------#
     #      adjust ACC setpoint from sign-based speed limit recognition        #
     #-------------------------------------------------------------------------#
-    cls.lead_0 = cls.sm['radarState'].leadOne
-    if cls.lead_0.status:
-      cls.visionDistance = cls.lead_0.dRel
-      cls.leadSpeed = round(cls.lead_0.vRel * 3.6)
+    if c.hudControl.leadProb > 0:
+      cls.visionDistance = c.hudControl.leadDistance
+      cls.leadSpeed = round(c.hudControl.leadSpeed * 3.6)
     else:
       cls.visionDistance = 200
       cls.leadSpeed = 200
@@ -125,7 +121,7 @@ class VolkswagenSpeedlimitsStock:
       cls.requiredBtnPresses = 15
 
     # when engaged use the following 2 routines to adjust the ACC setpoint depending on the current speed
-    if enabled and CS.out.cruiseState.enabled and not CS.out.standstill:
+    if c.enabled and CS.out.cruiseState.enabled and not CS.out.standstill:
       cls.wasEngagedBefore = True
 
       # priority 1: set temporary setpoint for smooth slow down when approaching slow or stopped cars
@@ -172,7 +168,7 @@ class VolkswagenSpeedlimitsStock:
                 cls.targetSetpoint = cls.offsetsAccel[cls.currentSpeedlimit]['targetSpeed']
 
     # when not engaged, continue to pre-set the acc setpoint to speed limits (like stock pACC does)
-    elif not enabled:
+    elif not c.enabled:
       # if OP was engaged before, abort currently running setpoint adjustments
       if cls.wasEngagedBefore:
         cls.speedAdjustInProgress = False
@@ -212,7 +208,7 @@ class VolkswagenSpeedlimitsStock:
               cls.BtnPressCounter += 1
 
             if cls.setpoint < cls.targetSetpoint and cls.targetSetpoint - cls.setpoint < 10:
-              if enabled:
+              if c.enabled:
                 graButtonStatesToSend = BUTTON_STATES.copy()
                 graButtonStatesToSend["resumeCruise"] = True
                 cls.BtnPressCounter += 1
@@ -228,7 +224,7 @@ class VolkswagenSpeedlimitsStock:
     return graButtonStatesToSend
 
   @staticmethod
-  def update_cruise_buttons(CS, enabled, graMsgSentCount):
+  def update_cruise_buttons(CS, c, graMsgSentCount):
 
-    graButtonStatesToSend = VolkswagenSpeedlimitsStock.update_speed_limit(CS, enabled, graMsgSentCount)
+    graButtonStatesToSend = VolkswagenSpeedlimitsStock.update_speed_limit(CS, c, graMsgSentCount)
     return graButtonStatesToSend

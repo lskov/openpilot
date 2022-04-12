@@ -639,11 +639,21 @@ class Controls:
     if self.joystick_mode and self.sm.rcv_frame['testJoystick'] > 0 and self.sm['testJoystick'].buttons[0]:
       CC.cruiseControl.cancel = True
 
+    model_v2 = self.sm['modelV2']
     hudControl = CC.hudControl
     hudControl.setSpeed = float(self.v_cruise_kph * CV.KPH_TO_MS)
     hudControl.speedVisible = self.enabled
     hudControl.lanesVisible = self.enabled
     hudControl.leadVisible = self.sm['longitudinalPlan'].hasLead
+  
+    if(len(model_v2.leadsV3) > 0):
+      hudControl.leadDistance = float(model_v2.leadsV3[0].x[0])
+      hudControl.leadSpeed = float(model_v2.leadsV3[0].v[0])
+      hudControl.leadProb = float(model_v2.leadsV3[0].prob)
+    else:
+      hudControl.leadDistance = -1.
+      hudControl.leadSpeed = -1.
+      hudControl.leadProb = 0.
 
     hudControl.rightLaneVisible = True
     hudControl.leftLaneVisible = True
@@ -652,7 +662,7 @@ class Controls:
     ldw_allowed = self.is_ldw_enabled and CS.vEgo > LDW_MIN_SPEED and not recent_blinker \
                     and not CC.latActive and self.sm['liveCalibration'].calStatus == Calibration.CALIBRATED
 
-    model_v2 = self.sm['modelV2']
+    #model_v2 = self.sm['modelV2']
     desire_prediction = model_v2.meta.desirePrediction
     if len(desire_prediction) and ldw_allowed:
       right_lane_visible = self.sm['lateralPlan'].rProb > 0.5
