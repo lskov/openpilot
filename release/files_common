@@ -151,6 +151,8 @@ selfdrive/car/volkswagen/carstate.py
 selfdrive/car/volkswagen/interface.py
 selfdrive/car/volkswagen/radar_interface.py
 selfdrive/car/volkswagen/values.py
+selfdrive/car/volkswagen/speedlimitsstock.py
+selfdrive/car/volkswagen/speedlimits.py
 selfdrive/car/volkswagen/carcontroller.py
 selfdrive/car/volkswagen/volkswagencan.py
 selfdrive/car/gm/__init__.py
