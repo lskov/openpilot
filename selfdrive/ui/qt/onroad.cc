@@ -698,15 +698,13 @@ void NvgWindow::updateFrameMat(int w, int h) {
       .translate(-intrinsic_matrix.v[2], -intrinsic_matrix.v[5]);
 }
 
-// shane's colored lane line
-void NvgWindow::drawLaneLines(QPainter &painter, const UIScene &scene) {
-  //if (!scene.end_to_end) {
-  UIState *s = uiState();
-  if (!scene.end_to_end) {
-    // lanelines
-    for (int i = 0; i < std::size(scene.lane_line_vertices); ++i) {
+
+void NvgWindow::drawLaneLines(QPainter &painter, const UIState *s) {
+  const UIScene &scene = s->scene;
+  // lanelines
+  for (int i = 0; i < std::size(scene.lane_line_vertices); ++i) {
       if (scene.dev_ui_enabled == 0){
-        painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, scene.lane_line_probs[i]));
+        painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, std::clamp<float>(scene.lane_line_probs[i], 0.0, 0.7)));
       }     
       else {
         if (i == 1 || i == 2) {
@@ -724,32 +722,34 @@ void NvgWindow::drawLaneLines(QPainter &painter, const UIScene &scene) {
       painter.drawPolygon(scene.lane_line_vertices[i].v, scene.lane_line_vertices[i].cnt);
     }
   
-    // road edges
-    for (int i = 0; i < std::size(scene.road_edge_vertices); ++i) {
-      painter.setBrush(QColor::fromRgbF(1.0, 0, 0, std::clamp<float>(1.0 - scene.road_edge_stds[i], 0.0, 1.0)));
-      painter.drawPolygon(scene.road_edge_vertices[i].v, scene.road_edge_vertices[i].cnt);
-    }
+    
+  // road edges
+  for (int i = 0; i < std::size(scene.road_edge_vertices); ++i) {
+    painter.setBrush(QColor::fromRgbF(1.0, 0, 0, std::clamp<float>(1.0 - scene.road_edge_stds[i], 0.0, 1.0)));
+    painter.drawPolygon(scene.road_edge_vertices[i].v, scene.road_edge_vertices[i].cnt);
   }
 
   // paint path
   QLinearGradient bg(0, height(), 0, height() / 4);
-  if (scene.dev_ui_enabled == 0){
-    bg.setColorAt(0, scene.end_to_end ? redColor() : whiteColor());
-    bg.setColorAt(1, scene.end_to_end ? redColor(0) : whiteColor(0));
-  } else {
-    if ((*s->sm)["controlsState"].getControlsState().getEnabled()) {
-      const cereal::ModelDataV2::XYZTData::Reader &pos = (*s->sm)["modelV2"].getModelV2().getPosition();
-      const float lat_pos = pos.getY().size() > 0 ? std::abs(pos.getY()[14] - pos.getY()[0]) : 0;  // 14 is 1.91406 (subtract initial pos to not consider offset)
-      float hue = lat_pos * -39.46 + 148;  // interp from {0, 4.5} -> {148, 0}
-      hue = (hue - 360. * floor(hue / 360.)) / 360.;  // scale and wrap around
-      bg.setColorAt(0, QColor::fromHslF(hue, .94, .51, 1.));
-      bg.setColorAt(1, QColor::fromHslF(hue, .73, .49, 100./255.));
-    } else {
-      bg.setColorAt(0, scene.end_to_end ? redColor() : QColor(255, 255, 255));
-      bg.setColorAt(1, scene.end_to_end ? redColor(0) : QColor(255, 255, 255, 0));
+  if (scene.end_to_end) {
+    const auto &orientation = (*s->sm)["modelV2"].getModelV2().getOrientation();
+    float orientation_future = 0;
+    if (orientation.getZ().size() > 16) {
+      orientation_future = std::abs(orientation.getZ()[16]);  // 2.5 seconds
     }
+    // straight: 112, in turns: 70
+    float curve_hue = fmax(70, 112 - (orientation_future * 420));
+    // FIXME: painter.drawPolygon can be slow if hue is not rounded
+    curve_hue = int(curve_hue * 100 + 0.5) / 100;
+
+    bg.setColorAt(0.0 / 1.5, QColor::fromHslF(148 / 360., 1.0, 0.5, 1.0));
+    bg.setColorAt(0.55 / 1.5, QColor::fromHslF(112 / 360., 1.0, 0.68, 0.8));
+    bg.setColorAt(0.9 / 1.5, QColor::fromHslF(curve_hue / 360., 1.0, 0.65, 0.6));
+    bg.setColorAt(1.0, QColor::fromHslF(curve_hue / 360., 1.0, 0.65, 0.0));
+  } else {
+    bg.setColorAt(0, whiteColor());
+    bg.setColorAt(1, whiteColor(0));
   }
- 
   painter.setBrush(bg);
   painter.drawPolygon(scene.track_vertices.v, scene.track_vertices.cnt);
 }
@@ -795,7 +795,7 @@ void NvgWindow::paintGL() {
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::NoPen);
 
-    drawLaneLines(painter, s->scene);
+    drawLaneLines(painter, s);
 
     if (s->scene.longitudinal_control) {
       auto leads = (*s->sm)["modelV2"].getModelV2().getLeadsV3();
