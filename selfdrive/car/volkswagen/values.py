@@ -16,6 +16,8 @@ class CarControllerParams:
   HCA_STEP = 2                   # HCA_01 message frequency 50Hz
   LDW_STEP = 10                  # LDW_02 message frequency 10Hz
   GRA_ACC_STEP = 3               # GRA_ACC_01 message frequency 33Hz
+  ACC_CONTROL_STEP = 2           # ACC_06 message frequency 50Hz
+  ACC_HUD_STEP = 6               # ACC_02 message frequency 16Hz
 
   GRA_VBP_STEP = 100             # Send ACC virtual button presses once a second
   GRA_VBP_COUNT = 16             # Send VBP messages for ~0.5s (GRA_ACC_STEP * 16)
@@ -29,6 +31,9 @@ class CarControllerParams:
   STEER_DRIVER_ALLOWANCE = 80
   STEER_DRIVER_MULTIPLIER = 3    # weight driver torque heavily
   STEER_DRIVER_FACTOR = 1        # from dbc
+
+  ACCEL_MAX = 2.0                # 2.0 m/s max acceleration
+  ACCEL_MIN = -3.5               # 3.5 m/s max deceleration
 
 class CANBUS:
   pt = 0
@@ -116,7 +121,7 @@ CAR_INFO: Dict[str, Union[VWCarInfo, List[VWCarInfo]]] = {
   CAR.ARTEON_MK1: VWCarInfo("Volkswagen Arteon 2018, 2021", footnotes=[Footnote.VW_HARNESS]),
   CAR.ATLAS_MK1: VWCarInfo("Volkswagen Atlas 2018-19, 2022", footnotes=[Footnote.VW_HARNESS]),
   CAR.GOLF_MK7: [
-    VWCarInfo("Volkswagen e-Golf 2014, 2019-20"),
+    VWCarInfo("Volkswagen e-Golf 2014, 2018-20"),
     VWCarInfo("Volkswagen Golf 2015-20"),
     VWCarInfo("Volkswagen Golf Alltrack 2017-18"),
     VWCarInfo("Volkswagen Golf GTE 2016"),
@@ -252,7 +257,9 @@ FW_VERSIONS = {
       b'\xf1\x8704L906056HN\xf1\x896590',
       b'\xf1\x870EA906016A \xf1\x898343',
       b'\xf1\x870EA906016E \xf1\x894219',
+      b'\xf1\x870EA906016F \xf1\x894238',
       b'\xf1\x870EA906016F \xf1\x895002',
+      b'\xf1\x870EA906016Q \xf1\x895993',
       b'\xf1\x870EA906016S \xf1\x897207',
       b'\xf1\x875G0906259  \xf1\x890007',
       b'\xf1\x875G0906259J \xf1\x890002',
@@ -340,6 +347,7 @@ FW_VERSIONS = {
       b'\xf1\x873Q0909144M \xf1\x895082\xf1\x82\00571A0JA16A1',
       b'\xf1\x875Q0909143K \xf1\x892033\xf1\x820519A9040203',
       b'\xf1\x875Q0909144AA\xf1\x891081\xf1\x82\00521A00441A1',
+      b'\xf1\x875Q0909144AA\xf1\x891081\xf1\x82\x0521A00608A1',
       b'\xf1\x875Q0909144AA\xf1\x891081\xf1\x82\x0521A00641A1',
       b'\xf1\x875Q0909144AB\xf1\x891082\xf1\x82\00521A00442A1',
       b'\xf1\x875Q0909144AB\xf1\x891082\xf1\x82\00521A00642A1',
