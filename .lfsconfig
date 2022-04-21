@@ -1,4 +1,4 @@
 [lfs]
-	url = https://github.com/jyoung8607/openpilot.git/info/lfs
-	pushurl = ssh://git@github.com/jyoung8607/openpilot.git
+	url = https://gitlab.com/commaai/openpilot-lfs.git/info/lfs
+	pushurl = ssh://git@gitlab.com/commaai/openpilot-lfs.git
 	locksverify = false
