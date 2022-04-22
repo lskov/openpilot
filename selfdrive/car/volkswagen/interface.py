@@ -181,10 +181,17 @@ class CarInterface(CarInterfaceBase):
     return ret
 
   # returns a car.CarState
-  def _update(self, c):
+  def update(self, c, can_strings):
     buttonEvents = []
 
+    # Process the most recent CAN message traffic, and check for validity
+    # The camera CAN has no signals we use at this time, but we process it
+    # anyway so we can test connectivity with can_valid
+    self.cp.update_strings(can_strings)
+    self.cp_cam.update_strings(can_strings)
+
     ret = self.CS.update(self.cp, self.cp_cam, self.cp_ext, self.CP.transmissionType)
+    ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
     # Check for and process state-change events (button press or release) from
@@ -231,11 +238,12 @@ class CarInterface(CarInterfaceBase):
     self.displayMetricUnitsPrev = self.CS.displayMetricUnits
     self.buttonStatesPrev = self.CS.buttonStates.copy()
 
-    return ret
+    self.CS.out = ret.as_reader()
+    return self.CS.out
 
   def apply(self, c):
     hud_control = c.hudControl
-    ret = self.CC.update(c, c.enabled, self.CS, self.frame, self.ext_bus, c.actuators,
+    ret = self.CC.update(c, self.CS, self.frame, self.ext_bus, c.actuators,
                          hud_control.visualAlert,
                          hud_control.leftLaneVisible,
                          hud_control.rightLaneVisible,
