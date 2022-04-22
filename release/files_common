@@ -151,6 +151,8 @@ selfdrive/car/volkswagen/carstate.py
 selfdrive/car/volkswagen/interface.py
 selfdrive/car/volkswagen/radar_interface.py
 selfdrive/car/volkswagen/values.py
+selfdrive/car/volkswagen/speedlimitsstock.py
+selfdrive/car/volkswagen/speedlimits.py
 selfdrive/car/volkswagen/carcontroller.py
 selfdrive/car/volkswagen/volkswagencan.py
 selfdrive/car/gm/__init__.py
@@ -565,8 +567,8 @@ opendbc/gm_global_a_powertrain_generated.dbc
 opendbc/gm_global_a_object.dbc
 opendbc/gm_global_a_chassis.dbc
 
-opendbc/ford_fusion_2018_pt.dbc
 opendbc/ford_fusion_2018_adas.dbc
+opendbc/ford_lincoln_base_pt.dbc
 
 opendbc/honda_accord_2018_can_generated.dbc
 opendbc/acura_ilx_2016_can_generated.dbc

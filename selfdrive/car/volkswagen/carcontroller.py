@@ -5,6 +5,7 @@ from selfdrive.car import apply_std_steer_torque_limits
 from selfdrive.car.volkswagen import volkswagencan
 from selfdrive.car.volkswagen.values import DBC_FILES, CANBUS, MQB_LDW_MESSAGES, BUTTON_STATES, CarControllerParams as P
 from opendbc.can.packer import CANPacker
+from selfdrive.car.volkswagen.speedlimitsstock import VolkswagenSpeedlimitsStock
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 LongCtrlState = car.CarControl.Actuators.LongControlState
@@ -22,7 +23,7 @@ class CarController():
     self.graMsgSentCount = 0
     self.graMsgStartFramePrev = 0
     self.graMsgBusCounterPrev = 0
-
+    
     self.steer_rate_limited = False
     self.acc_starting = False
     self.acc_stopping = False
@@ -150,6 +151,8 @@ class CarController():
     # FIXME: this entire section is in desperate need of refactoring
 
     if self.CP.pcmCruise:
+      if frame > self.graMsgStartFramePrev + P.GRA_VBP_STEP / 2:
+        self.graButtonStatesToSend = VolkswagenSpeedlimitsStock.update_cruise_buttons(CS, c, self.graMsgSentCount)
       if frame > self.graMsgStartFramePrev + P.GRA_VBP_STEP:
         if c.cruiseControl.cancel:
           # Cancel ACC if it's engaged with OP disengaged.

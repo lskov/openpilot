@@ -15,7 +15,7 @@ from selfdrive.swaglog import cloudlog
 from selfdrive.boardd.boardd import can_list_to_can_capnp
 from selfdrive.car.car_helpers import get_car, get_startup_event, get_one_can
 from selfdrive.controls.lib.lane_planner import CAMERA_OFFSET
-from selfdrive.controls.lib.drive_helpers import update_v_cruise, initialize_v_cruise
+from selfdrive.controls.lib.drive_helpers import initialize_v_cruise , update_v_cruise # FIXME , update_v_cruise
 from selfdrive.controls.lib.drive_helpers import get_lag_adjusted_curvature
 from selfdrive.controls.lib.longcontrol import LongControl
 from selfdrive.controls.lib.latcontrol_pid import LatControlPID
@@ -28,6 +28,7 @@ from selfdrive.controls.lib.vehicle_model import VehicleModel
 from selfdrive.locationd.calibrationd import Calibration
 from selfdrive.hardware import HARDWARE, TICI, EON
 from selfdrive.manager.process_config import managed_processes
+#from selfdrive.car.volkswagen.speedlimits import VolkswagenSpeedlimits
 
 SOFT_DISABLE_TIME = 3  # seconds
 LDW_MIN_SPEED = 31 * CV.MPH_TO_MS
@@ -52,7 +53,7 @@ ButtonEvent = car.CarState.ButtonEvent
 SafetyModel = car.CarParams.SafetyModel
 
 IGNORED_SAFETY_MODES = (SafetyModel.silent, SafetyModel.noOutput)
-CSID_MAP = {"0": EventName.roadCameraError, "1": EventName.wideRoadCameraError, "2": EventName.driverCameraError}
+CSID_MAP = {"1": EventName.roadCameraError, "2": EventName.wideRoadCameraError, "0": EventName.driverCameraError}
 ACTUATOR_FIELDS = tuple(car.CarControl.Actuators.schema.fields.keys())
 ACTIVE_STATES = (State.enabled, State.softDisabling, State.overriding)
 ENABLED_STATES = (State.preEnabled, *ACTIVE_STATES)
@@ -270,7 +271,9 @@ class Controls:
                                                     LaneChangeState.laneChangeFinishing):
       self.events.add(EventName.laneChange)
 
-    if not CS.canValid:
+    if CS.canTimeout:
+      self.events.add(EventName.canBusMissing)
+    elif not CS.canValid:
       self.events.add(EventName.canError)
 
     for i, pandaState in enumerate(self.sm['pandaStates']):
@@ -432,6 +435,8 @@ class Controls:
 
     # if stock cruise is completely disabled, then we can use our own set speed logic
     if not self.CP.pcmCruise:
+      #self.v_cruise_kph = VolkswagenSpeedlimits.update_cruise_buttons(self.v_cruise_kph, CS.buttonEvents, self.button_timers, self.enabled, self.is_metric, CS)
+      # FIXME this could be made more elagant 
       self.v_cruise_kph = update_v_cruise(self.v_cruise_kph, CS.buttonEvents, self.button_timers, self.enabled, self.is_metric)
     else:
       if CS.cruiseState.available:
@@ -636,11 +641,21 @@ class Controls:
     if self.joystick_mode and self.sm.rcv_frame['testJoystick'] > 0 and self.sm['testJoystick'].buttons[0]:
       CC.cruiseControl.cancel = True
 
+    model_v2 = self.sm['modelV2']
     hudControl = CC.hudControl
     hudControl.setSpeed = float(self.v_cruise_kph * CV.KPH_TO_MS)
     hudControl.speedVisible = self.enabled
     hudControl.lanesVisible = self.enabled
     hudControl.leadVisible = self.sm['longitudinalPlan'].hasLead
+  
+    if(len(model_v2.leadsV3) > 0):
+      hudControl.leadDistance = float(model_v2.leadsV3[0].x[0])
+      hudControl.leadSpeed = float(model_v2.leadsV3[0].v[0])
+      hudControl.leadProb = float(model_v2.leadsV3[0].prob)
+    else:
+      hudControl.leadDistance = -1.
+      hudControl.leadSpeed = -1.
+      hudControl.leadProb = 0.
 
     hudControl.rightLaneVisible = True
     hudControl.leftLaneVisible = True
@@ -649,7 +664,7 @@ class Controls:
     ldw_allowed = self.is_ldw_enabled and CS.vEgo > LDW_MIN_SPEED and not recent_blinker \
                     and not CC.latActive and self.sm['liveCalibration'].calStatus == Calibration.CALIBRATED
 
-    model_v2 = self.sm['modelV2']
+    #model_v2 = self.sm['modelV2']
     desire_prediction = model_v2.meta.desirePrediction
     if len(desire_prediction) and ldw_allowed:
       right_lane_visible = self.sm['lateralPlan'].rProb > 0.5
