@@ -70,12 +70,13 @@ class CarInterface(CarInterfaceBase):
     ret.pcmCruise = not ret.openpilotLongitudinalControl
     ret.longitudinalActuatorDelayUpperBound = 0.3  # s
     ret.stoppingControl = True
-    ret.vEgoStopping = 0.4
-    ret.vEgoStarting = 0.5
     ret.stopAccel = -1.0
+    ret.stoppingDecelRate = 0.4  # reach stopping target smoothly
+    ret.longitudinalTuning.deadzoneBP = [0., 9.]
+    ret.longitudinalTuning.deadzoneV = [0., .15]
     ret.longitudinalTuning.kpBP = [0., 5., 35.]
-    ret.longitudinalTuning.kpV = [3.6, 2.4, 1.5]
     ret.longitudinalTuning.kiBP = [0., 35.]
+    ret.longitudinalTuning.kpV = [3.6, 2.4, 1.5]
     ret.longitudinalTuning.kiV = [0.54, 0.36]
 
     # Per-chassis tuning values, override tuning defaults here if desired
