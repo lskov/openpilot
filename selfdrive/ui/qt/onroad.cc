@@ -529,7 +529,7 @@ void OnroadHud::drawRightDevUi(QPainter &p, int x, int y) {
 
     snprintf(val_str, sizeof(val_str), "%01d:%02d", minute, second);
 
-    rh += drawDevUiElementRight(p, x, ry, val_str, "ACTIVE TIME", valueColor);
+    rh += drawDevUiElementRight(p, x, ry, val_str, "ACTIVE TIME", "", valueColor);
     ry = y + rh;
   }
 
