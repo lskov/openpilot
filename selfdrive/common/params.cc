@@ -179,6 +179,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"Offroad_UpdateFailed", CLEAR_ON_MANAGER_START},
     {"DevUI", PERSISTENT},
     {"ShowDebugUI", PERSISTENT},
+    {"MqbSpeedSignFollow", PERSISTENT},
 };
 
 } // namespace

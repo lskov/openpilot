@@ -522,7 +522,6 @@ void OnroadHud::drawRightDevUi(QPainter &p, int x, int y) {
   // Unit: Km if metric, else Miles
   if (true) {
     char val_str[16];
-    char units_str[8];
     QColor valueColor = QColor(255, 255, 255, 255);
 
     int minute = (int)(openpilotActiveTime / 60);
@@ -530,7 +529,7 @@ void OnroadHud::drawRightDevUi(QPainter &p, int x, int y) {
 
     snprintf(val_str, sizeof(val_str), "%01d:%02d", minute, second);
 
-    rh += drawDevUiElementRight(p, x, ry, val_str, "ACTIVE TIME", units_str, valueColor);
+    rh += drawDevUiElementRight(p, x, ry, val_str, "ACTIVE TIME", valueColor);
     ry = y + rh;
   }
 

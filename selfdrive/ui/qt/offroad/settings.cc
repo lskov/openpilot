@@ -93,6 +93,15 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
     });
   }
 
+    if (params.getBool("MqbSpeedSignFollow")) {
+    toggles.push_back({
+      "MqbSpeedSignFollow",
+      "MQB Speed Sign Follow",
+      "openpilot will follow speedsign detected from FWD cam. Warning: this will set max speed to detected speed!",
+      "../assets/offroad/icon_map_speed.png",
+    });
+  }
+
   for (auto &[param, title, desc, icon] : toggles) {
     auto toggle = new ParamControl(param, title, desc, icon, this);
     bool locked = params.getBool((param + "Lock").toStdString());
