@@ -91,9 +91,7 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       "openpilot will disable the car's radar and will take over control of gas and brakes. Warning: this disables AEB!",
       "../assets/offroad/icon_speed_limit.png",
     });
-  }
-
-    if (params.getBool("MqbSpeedSignFollow")) {
+    
     toggles.push_back({
       "MqbSpeedSignFollow",
       "MQB Speed Sign Follow",
