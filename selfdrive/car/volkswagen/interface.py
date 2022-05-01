@@ -68,7 +68,7 @@ class CarInterface(CarInterfaceBase):
     # Global longitudinal tuning defaults, can be overridden per-vehicle
 
     ret.pcmCruise = not ret.openpilotLongitudinalControl
-    ret.longitudinalActuatorDelayUpperBound = 0.3  # s
+    ret.longitudinalActuatorDelayUpperBound = 0.5  # s
     ret.stoppingControl = True
     ret.stopAccel = -1.0
     ret.stoppingDecelRate = 0.4  # reach stopping target smoothly
@@ -245,7 +245,6 @@ class CarInterface(CarInterfaceBase):
                          hud_control.leftLaneDepart,
                          hud_control.rightLaneDepart,
                          hud_control.leadVisible,
-                         hud_control.setSpeed,
-                         hud_control.speedVisible)
+                         hud_control.setSpeed)
     self.frame += 1
     return ret
