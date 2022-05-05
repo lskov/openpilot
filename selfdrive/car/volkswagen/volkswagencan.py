@@ -77,8 +77,8 @@ def create_mqb_acc_06_control(packer, bus, enabled, acc_status, accel, acc_stopp
     "ACC_Sollbeschleunigung_02": accel if enabled else 3.01,
     "ACC_zul_Regelabw_unten": cb_neg,
     "ACC_zul_Regelabw_oben": cb_pos,
-    "ACC_neg_Sollbeschl_Grad_02": 4.0 if enabled else 0,
-    "ACC_pos_Sollbeschl_Grad_02": 4.0 if enabled else 0,
+    "ACC_neg_Sollbeschl_Grad_02": 8.0 if enabled else 0,
+    "ACC_pos_Sollbeschl_Grad_02": 8.0 if enabled else 0,
     "ACC_Anfahren": acc_starting,
     "ACC_Anhalten": acc_stopping,
   }

@@ -13,7 +13,6 @@ class CarInterface(CarInterfaceBase):
   def __init__(self, CP, CarController, CarState):
     super().__init__(CP, CarController, CarState)
 
-    self.displayMetricUnitsPrev = None
     self.buttonStatesPrev = BUTTON_STATES.copy()
 
     if CP.networkLocation == NetworkLocation.fwdCamera:
@@ -66,11 +65,11 @@ class CarInterface(CarInterfaceBase):
     ret.lateralTuning.pid.kiV = [0.2]
 
     # Global longitudinal tuning defaults, can be overridden per-vehicle
-
     ret.pcmCruise = not ret.openpilotLongitudinalControl
+    ret.longitudinalActuatorDelayLowerBound = 0.3  # s
     ret.longitudinalActuatorDelayUpperBound = 0.5  # s
     ret.stoppingControl = True
-    ret.stopAccel = -1.0
+    ret.stopAccel = -0.6
     ret.stoppingDecelRate = 0.4  # reach stopping target smoothly
     ret.longitudinalTuning.deadzoneBP = [0., 9.]
     ret.longitudinalTuning.deadzoneV = [0., .15]
@@ -78,7 +77,7 @@ class CarInterface(CarInterfaceBase):
     ret.longitudinalTuning.kiBP = [0., 35.]
     ret.longitudinalTuning.kpV = [3.6, 2.4, 1.5]
     ret.longitudinalTuning.kiV = [0.54, 0.36]
-
+    
     # Per-chassis tuning values, override tuning defaults here if desired
 
     if candidate == CAR.ARTEON_MK1:
@@ -231,7 +230,6 @@ class CarInterface(CarInterfaceBase):
     ret.buttonEvents = buttonEvents
 
     # update previous car states
-    self.displayMetricUnitsPrev = self.CS.displayMetricUnits
     self.buttonStatesPrev = self.CS.buttonStates.copy()
 
     return ret
