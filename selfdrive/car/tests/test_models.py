@@ -15,7 +15,6 @@ from selfdrive.car.car_helpers import interfaces
 from selfdrive.car.gm.values import CAR as GM
 from selfdrive.car.honda.values import CAR as HONDA, HONDA_BOSCH
 from selfdrive.car.hyundai.values import CAR as HYUNDAI
-from selfdrive.car.toyota.values import CAR as TOYOTA
 from selfdrive.car.tests.routes import non_tested_cars, routes, TestRoute
 from selfdrive.test.openpilotci import get_url
 from tools.lib.logreader import LogReader
@@ -70,7 +69,7 @@ class TestCarModel(unittest.TestCase):
         continue
 
       can_msgs = []
-      fingerprint = {i: dict() for i in range(3)}
+      fingerprint = defaultdict(dict)
       for msg in lr:
         if msg.which() == "can":
           for m in msg.can:
@@ -99,8 +98,10 @@ class TestCarModel(unittest.TestCase):
 
     # TODO: check safetyModel is in release panda build
     self.safety = libpandasafety_py.libpandasafety
-    set_status = self.safety.set_safety_hooks(self.CP.safetyConfigs[0].safetyModel.raw, self.CP.safetyConfigs[0].safetyParam)
-    self.assertEqual(0, set_status, f"failed to set safetyModel {self.CP.safetyConfigs}")
+
+    cfg = self.CP.safetyConfigs[-1]
+    set_status = self.safety.set_safety_hooks(cfg.safetyModel.raw, cfg.safetyParam)
+    self.assertEqual(0, set_status, f"failed to set safetyModel {cfg}")
     self.safety.init_tests()
 
   def test_car_params(self):
@@ -115,6 +116,8 @@ class TestCarModel(unittest.TestCase):
       tuning = self.CP.lateralTuning.which()
       if tuning == 'pid':
         self.assertTrue(len(self.CP.lateralTuning.pid.kpV))
+      elif tuning == 'torque':
+        self.assertTrue(self.CP.lateralTuning.torque.kf > 0)
       elif tuning == 'lqr':
         self.assertTrue(len(self.CP.lateralTuning.lqr.a))
       elif tuning == 'indi':
@@ -144,11 +147,11 @@ class TestCarModel(unittest.TestCase):
     assert RI
 
     error_cnt = 0
-    for msg in self.can_msgs:
-      radar_data = RI.update((msg.as_builder().to_bytes(),))
-      if radar_data is not None:
-        error_cnt += car.RadarData.Error.canError in radar_data.errors
-    self.assertLess(error_cnt, 20)
+    for i, msg in enumerate(self.can_msgs):
+      rr = RI.update((msg.as_builder().to_bytes(),))
+      if rr is not None and i > 50:
+        error_cnt += car.RadarData.Error.canError in rr.errors
+    self.assertEqual(error_cnt, 0)
 
   def test_panda_safety_rx_valid(self):
     if self.CP.dashcamOnly:
@@ -167,7 +170,7 @@ class TestCarModel(unittest.TestCase):
         if msg.src >= 64:
           continue
 
-        to_send = package_can_msg([msg.address, 0, msg.dat, msg.src])
+        to_send = package_can_msg([msg.address, 0, msg.dat, msg.src % 4])
         if self.safety.safety_rx_hook(to_send) != 1:
           failed_addrs[hex(msg.address)] += 1
 
@@ -209,13 +212,7 @@ class TestCarModel(unittest.TestCase):
 
       # TODO: check rest of panda's carstate (steering, ACC main on, etc.)
 
-      # TODO: make the interceptor thresholds in openpilot and panda match, then remove this exception
-      gas_pressed = CS.gasPressed
-      if self.CP.enableGasInterceptor and gas_pressed and not self.safety.get_gas_pressed_prev():
-        # panda intentionally has a higher threshold
-        if self.CP.carName == "toyota" and 15 < CS.gas < 15*1.5:
-          gas_pressed = False
-      checks['gasPressed'] += gas_pressed != self.safety.get_gas_pressed_prev()
+      checks['gasPressed'] += CS.gasPressed != self.safety.get_gas_pressed_prev()
 
       # TODO: remove this exception once this mismatch is resolved
       brake_pressed = CS.brakePressed
@@ -245,15 +242,14 @@ class TestCarModel(unittest.TestCase):
 
       if self.CP.carName == "honda":
         checks['mainOn'] += CS.cruiseState.available != self.safety.get_acc_main_on()
+        # TODO: fix standstill mismatches for other makes
+        checks['standstill'] += CS.standstill == self.safety.get_vehicle_moving()
 
       CS_prev = CS
 
-    # TODO: add flag to toyota safety
-    if self.CP.carFingerprint == TOYOTA.SIENNA and checks['brakePressed'] < 25:
-      checks['brakePressed'] = 0
-
     failed_checks = {k: v for k, v in checks.items() if v > 0}
     self.assertFalse(len(failed_checks), f"panda safety doesn't agree with openpilot: {failed_checks}")
+
 
 if __name__ == "__main__":
   unittest.main()

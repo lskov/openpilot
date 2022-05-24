@@ -44,7 +44,7 @@ class HardwareBase(ABC):
     pass
 
   @abstractmethod
-  def get_imei(self, slot):
+  def get_imei(self, slot) -> str:
     pass
 
   @abstractmethod
@@ -76,30 +76,6 @@ class HardwareBase(ABC):
 
   @staticmethod
   def set_bandwidth_limit(upload_speed_kbps: int, download_speed_kbps: int) -> None:
-    pass
-
-  @abstractmethod
-  def get_battery_capacity(self):
-    pass
-
-  @abstractmethod
-  def get_battery_status(self):
-    pass
-
-  @abstractmethod
-  def get_battery_current(self):
-    pass
-
-  @abstractmethod
-  def get_battery_voltage(self):
-    pass
-
-  @abstractmethod
-  def get_battery_charging(self):
-    pass
-
-  @abstractmethod
-  def set_battery_charging(self, on):
     pass
 
   @abstractmethod
@@ -157,4 +133,10 @@ class HardwareBase(ABC):
 
   @abstractmethod
   def get_networks(self):
+    pass
+
+  def reset_internal_panda(self):
+    pass
+
+  def recover_internal_panda(self):
     pass
