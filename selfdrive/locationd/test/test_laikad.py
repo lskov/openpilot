@@ -7,6 +7,7 @@ from unittest import mock
 from unittest.mock import Mock, patch
 
 from common.params import Params
+from laika.constants import SECS_IN_DAY
 from laika.ephemeris import EphemerisType, GPSEphemeris
 from laika.gps_time import GPSTime
 from laika.helpers import ConstellationId, TimeRangeHolder
@@ -62,6 +63,48 @@ class TestLaikad(unittest.TestCase):
   def setUp(self):
     Params().delete(EPHEMERIS_CACHE)
 
+  def test_fetch_orbits_non_blocking(self):
+    gpstime = GPSTime.from_datetime(datetime(2021, month=3, day=1))
+    laikad = Laikad()
+    laikad.fetch_orbits(gpstime, block=False)
+    laikad.orbit_fetch_future.result(30)
+    # Get results and save orbits to laikad:
+    laikad.fetch_orbits(gpstime, block=False)
+
+    ephem = laikad.astro_dog.orbits['G01'][0]
+    self.assertIsNotNone(ephem)
+
+    laikad.fetch_orbits(gpstime+2*SECS_IN_DAY, block=False)
+    laikad.orbit_fetch_future.result(30)
+    # Get results and save orbits to laikad:
+    laikad.fetch_orbits(gpstime + 2 * SECS_IN_DAY, block=False)
+
+    ephem2 = laikad.astro_dog.orbits['G01'][0]
+    self.assertIsNotNone(ephem)
+    self.assertNotEqual(ephem, ephem2)
+
+  def test_fetch_orbits_with_wrong_clocks(self):
+    laikad = Laikad()
+
+    def check_has_orbits():
+      self.assertGreater(len(laikad.astro_dog.orbits), 0)
+      ephem = laikad.astro_dog.orbits['G01'][0]
+      self.assertIsNotNone(ephem)
+    real_current_time = GPSTime.from_datetime(datetime(2021, month=3, day=1))
+    wrong_future_clock_time = real_current_time + SECS_IN_DAY
+
+    laikad.fetch_orbits(wrong_future_clock_time, block=True)
+    check_has_orbits()
+    self.assertEqual(laikad.last_fetch_orbits_t, wrong_future_clock_time)
+
+    # Test fetching orbits with earlier time
+    assert real_current_time < laikad.last_fetch_orbits_t
+
+    laikad.astro_dog.orbits = {}
+    laikad.fetch_orbits(real_current_time, block=True)
+    check_has_orbits()
+    self.assertEqual(laikad.last_fetch_orbits_t, real_current_time)
+
   def test_ephemeris_source_in_msg(self):
     data_mock = defaultdict(str)
     data_mock['sv_id'] = 1
@@ -95,16 +138,28 @@ class TestLaikad(unittest.TestCase):
     laikad = Laikad(auto_update=True, valid_ephem_types=EphemerisType.ULTRA_RAPID_ORBIT)
     correct_msgs = verify_messages(self.logs, laikad)
 
-    correct_msgs_expected = 560
+    correct_msgs_expected = 555
     self.assertEqual(correct_msgs_expected, len(correct_msgs))
     self.assertEqual(correct_msgs_expected, len([m for m in correct_msgs if m.gnssMeasurements.positionECEF.valid]))
+
+  def test_kf_becomes_valid(self):
+    laikad = Laikad(auto_update=False)
+    m = self.logs[0]
+    self.assertFalse(all(laikad.kf_valid(m.logMonoTime * 1e-9)))
+    kf_valid = False
+    for m in self.logs:
+      laikad.process_ublox_msg(m.ubloxGnss, m.logMonoTime, block=True)
+      kf_valid = all(laikad.kf_valid(m.logMonoTime * 1e-9))
+      if kf_valid:
+        break
+    self.assertTrue(kf_valid)
 
   def test_laika_online_nav_only(self):
     laikad = Laikad(auto_update=True, valid_ephem_types=EphemerisType.NAV)
     # Disable fetch_orbits to test NAV only
     laikad.fetch_orbits = Mock()
     correct_msgs = verify_messages(self.logs, laikad)
-    correct_msgs_expected = 560
+    correct_msgs_expected = 559
     self.assertEqual(correct_msgs_expected, len(correct_msgs))
     self.assertEqual(correct_msgs_expected, len([m for m in correct_msgs if m.gnssMeasurements.positionECEF.valid]))
 
@@ -113,8 +168,8 @@ class TestLaikad(unittest.TestCase):
     downloader_mock.side_effect = IOError
     laikad = Laikad(auto_update=False)
     correct_msgs = verify_messages(self.logs, laikad)
-    self.assertEqual(256, len(correct_msgs))
-    self.assertEqual(256, len([m for m in correct_msgs if m.gnssMeasurements.positionECEF.valid]))
+    self.assertEqual(16, len(correct_msgs))
+    self.assertEqual(16, len([m for m in correct_msgs if m.gnssMeasurements.positionECEF.valid]))
 
   def test_laika_get_orbits(self):
     laikad = Laikad(auto_update=False)
@@ -155,7 +210,7 @@ class TestLaikad(unittest.TestCase):
       while Params().get(EPHEMERIS_CACHE) is None:
         time.sleep(0.1)
         max_time -= 0.1
-        if max_time == 0:
+        if max_time < 0:
           self.fail("Cache has not been written after 2 seconds")
 
     # Test cache with no ephemeris
@@ -170,7 +225,7 @@ class TestLaikad(unittest.TestCase):
     wait_for_cache()
 
     # Check both nav and orbits separate
-    laikad = Laikad(auto_update=False, valid_ephem_types=EphemerisType.NAV)
+    laikad = Laikad(auto_update=False, valid_ephem_types=EphemerisType.NAV, save_ephemeris=True)
     # Verify orbits and nav are loaded from cache
     self.dict_has_values(laikad.astro_dog.orbits)
     self.dict_has_values(laikad.astro_dog.nav)
@@ -185,7 +240,7 @@ class TestLaikad(unittest.TestCase):
       mock_method.assert_not_called()
 
       # Verify cache is working for only orbits by running a segment
-      laikad = Laikad(auto_update=False, valid_ephem_types=EphemerisType.ULTRA_RAPID_ORBIT)
+      laikad = Laikad(auto_update=False, valid_ephem_types=EphemerisType.ULTRA_RAPID_ORBIT, save_ephemeris=True)
       msg = verify_messages(self.logs, laikad, return_one_success=True)
       self.assertIsNotNone(msg)
       # Verify orbit data is not downloaded

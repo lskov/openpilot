@@ -59,11 +59,14 @@ jobs:
         TARGET_DIR=$STRIPPED_DIR release/build_devel.sh
         cp Dockerfile.openpilot_base $STRIPPED_DIR
     - name: Build Docker image
-      run: eval "$BUILD"
+      run: |
+          eval "$BUILD"
+          rm $STRIPPED_DIR/Dockerfile.openpilot_base
     - name: Build openpilot and run checks
       run: |
           cd $STRIPPED_DIR
           ${{ env.RUN }} "CI=1 python selfdrive/manager/build.py && \
+                          release/check-dirty.sh && \
                           python -m unittest discover selfdrive/car"
 
   build_all:
@@ -89,7 +92,7 @@ jobs:
     - name: Build Docker image
       run: eval "$BUILD"
     - name: Build openpilot with all flags
-      run: ${{ env.RUN }} "scons -j$(nproc) --extras --test"
+      run: ${{ env.RUN }} "scons -j$(nproc) --extras --test && release/check-dirty.sh"
     - name: Cleanup scons cache
       run: |
           ${{ env.RUN }} "scons -j$(nproc) --extras --test && \
@@ -299,17 +302,21 @@ jobs:
                         $UNIT_TEST selfdrive/loggerd && \
                         $UNIT_TEST selfdrive/car && \
                         $UNIT_TEST selfdrive/locationd && \
+                        selfdrive/locationd/test/_test_locationd_lib.py && \
                         $UNIT_TEST selfdrive/athena && \
                         $UNIT_TEST selfdrive/thermald && \
-                        $UNIT_TEST selfdrive/hardware/tici && \
+                        $UNIT_TEST system/hardware/tici && \
                         $UNIT_TEST selfdrive/modeld && \
                         $UNIT_TEST tools/lib/tests && \
+                        ./selfdrive/ui/tests/create_test_translations.sh && \
+                        QT_QPA_PLATFORM=offscreen ./selfdrive/ui/tests/test_translations && \
+                        ./selfdrive/ui/tests/test_translations.py && \
                         ./common/tests/test_util && \
                         ./common/tests/test_swaglog && \
                         ./selfdrive/boardd/tests/test_boardd_usbprotocol && \
                         ./selfdrive/loggerd/tests/test_logger &&\
                         ./system/proclogd/tests/test_proclog && \
-                        ./selfdrive/ui/replay/tests/test_replay && \
+                        ./tools/replay/tests/test_replay && \
                         ./system/camerad/test/ae_gray_test && \
                         coverage xml"
     - name: "Upload coverage to Codecov"
@@ -364,7 +371,7 @@ jobs:
                         CI=1 AZURE_TOKEN='$AZURE_TOKEN' python selfdrive/test/process_replay/test_processes.py -j$(nproc) --upload-only"
     - name: "Upload coverage to Codecov"
       uses: codecov/codecov-action@v2
-  
+
   model_replay_onnx:
     name: model replay onnx
     runs-on: ubuntu-20.04
