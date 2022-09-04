@@ -10,6 +10,10 @@ from common.conversions import Conversions as CV
 GOOD_TORQUE_THRESHOLD = 1.0  # m/s^2
 MODEL_YEARS_RE = r"(?<= )((\d{4}-\d{2})|(\d{4}))(,|$)"
 
+# Makes that lack auto-resume with stock long, and auto resume in any configuration
+NO_AUTO_RESUME_STOCK_LONG = {"toyota", "gm"}
+NO_AUTO_RESUME = NO_AUTO_RESUME_STOCK_LONG | {"nissan", "subaru"}
+
 
 class Column(Enum):
   MAKE = "Make"
@@ -19,7 +23,6 @@ class Column(Enum):
   FSR_LONGITUDINAL = "No ACC accel below"
   FSR_STEERING = "No ALC below"
   STEERING_TORQUE = "Steering Torque"
-  AUTO_RESUME = "Resume from stop"
   HARNESS = "Harness"
 
 
@@ -136,7 +139,6 @@ class CarInfo:
       Column.FSR_LONGITUDINAL: f"{max(self.min_enable_speed * CV.MS_TO_MPH, 0):.0f} mph",
       Column.FSR_STEERING: f"{max(self.min_steer_speed * CV.MS_TO_MPH, 0):.0f} mph",
       Column.STEERING_TORQUE: Star.EMPTY,
-      Column.AUTO_RESUME: Star.FULL if CP.autoResumeSng else Star.EMPTY,
       Column.HARNESS: self.harness.value,
     }
 
@@ -164,7 +166,7 @@ class CarInfo:
       acc = ""
       if self.min_enable_speed > 0:
         acc = f" <strong>while driving above {self.min_enable_speed * CV.MS_TO_MPH:.0f} mph</strong>"
-      elif CP.autoResumeSng:
+      elif CP.carName not in NO_AUTO_RESUME or (CP.carName in NO_AUTO_RESUME_STOCK_LONG and CP.openpilotLongitudinalControl):
         acc = " <strong>that automatically resumes from a stop</strong>"
 
       if self.row[Column.STEERING_TORQUE] != Star.FULL:
@@ -191,3 +193,4 @@ class CarInfo:
       item += footnote_tag.format(f'{",".join(map(str, sups))}')
 
     return item
+

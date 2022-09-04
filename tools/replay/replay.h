@@ -61,7 +61,7 @@ signals:
   void streamStarted();
 
 protected slots:
-  void segmentLoadFinished(bool success);
+  void segmentLoadFinished(bool sucess);
 
 protected:
   typedef std::map<int, std::unique_ptr<Segment>> SegmentMap;

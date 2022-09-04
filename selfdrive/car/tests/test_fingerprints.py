@@ -94,4 +94,4 @@ if __name__ == "__main__":
     print("TEST FAILED")
     sys.exit(1)
   else:
-    print("TEST SUCCESSFUL")
+    print("TEST SUCESSFUL")

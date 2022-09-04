@@ -44,7 +44,6 @@ pip install pip==21.3.1
 pip install pipenv==2021.11.23
 
 if [ -d "./xx" ]; then
-  echo "WARNING: using xx Pipfile ******"
   export PIPENV_SYSTEM=1
   export PIPENV_PIPFILE=./xx/Pipfile
 fi
@@ -57,8 +56,7 @@ else
 fi
 
 echo "pip packages install..."
-pipenv sync --dev
-pipenv --clear
+pipenv install --dev --deploy --clear
 pyenv rehash
 
 echo "pre-commit hooks install..."

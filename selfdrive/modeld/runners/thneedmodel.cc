@@ -2,10 +2,11 @@
 
 #include <cassert>
 
-ThneedModel::ThneedModel(const char *path, float *loutput, size_t loutput_size, int runtime, bool luse_extra, bool luse_tf8, cl_context context) {
-  thneed = new Thneed(true, context);
+ThneedModel::ThneedModel(const char *path, float *loutput, size_t loutput_size, int runtime, bool luse_extra) {
+  thneed = new Thneed(true);
   thneed->load(path);
   thneed->clexec();
+  thneed->find_inputs_outputs();
 
   recorded = false;
   output = loutput;

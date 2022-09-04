@@ -131,8 +131,7 @@ pipeline {
               ["test boardd loopback", "python selfdrive/boardd/tests/test_boardd_loopback.py"],
               ["test loggerd", "python selfdrive/loggerd/tests/test_loggerd.py"],
               ["test encoder", "LD_LIBRARY_PATH=/usr/local/lib python selfdrive/loggerd/tests/test_encoder.py"],
-              ["test sensord", "python selfdrive/sensord/tests/test_sensord.py"],
-              ["test pigeond", "python selfdrive/sensord/tests/test_pigeond.py"],
+              ["test sensord", "python selfdrive/sensord/test/test_sensord.py"],
             ])
           }
         }

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import sys
 import time
 import signal
@@ -7,7 +8,6 @@ import struct
 import requests
 import urllib.parse
 from datetime import datetime
-from typing import List, Optional
 
 from cereal import messaging
 from common.params import Params
@@ -25,7 +25,7 @@ UBLOX_SOS_NACK = b"\xb5\x62\x09\x14\x08\x00\x02\x00\x00\x00\x00\x00\x00\x00"
 UBLOX_BACKUP_RESTORE_MSG = b"\xb5\x62\x09\x14\x08\x00\x03"
 UBLOX_ASSIST_ACK = b"\xb5\x62\x13\x60\x08\x00"
 
-def set_power(enabled: bool) -> None:
+def set_power(enabled):
   gpio_init(GPIO.UBLOX_SAFEBOOT_N, True)
   gpio_init(GPIO.UBLOX_PWR_EN, True)
   gpio_init(GPIO.UBLOX_RST_N, True)
@@ -35,14 +35,14 @@ def set_power(enabled: bool) -> None:
   gpio_set(GPIO.UBLOX_RST_N, enabled)
 
 
-def add_ubx_checksum(msg: bytes) -> bytes:
+def add_ubx_checksum(msg):
   A = B = 0
   for b in msg[2:]:
     A = (A + b) % 256
     B = (B + A) % 256
   return msg + bytes([A, B])
 
-def get_assistnow_messages(token: bytes) -> List[bytes]:
+def get_assistnow_messages(token):
   # make request
   # TODO: implement adding the last known location
   r = requests.get("https://online-live2.services.u-blox.com/GetOnlineData.ashx", params=urllib.parse.urlencode({
@@ -64,13 +64,14 @@ def get_assistnow_messages(token: bytes) -> List[bytes]:
 
 
 class TTYPigeon():
-  def __init__(self):
+  def __init__(self, path):
+    self.path = path
     self.tty = serial.VTIMESerial(UBLOX_TTY, baudrate=9600, timeout=0)
 
-  def send(self, dat: bytes) -> None:
+  def send(self, dat):
     self.tty.write(dat)
 
-  def receive(self) -> bytes:
+  def receive(self):
     dat = b''
     while len(dat) < 0x1000:
       d = self.tty.read(0x40)
@@ -79,10 +80,10 @@ class TTYPigeon():
         break
     return dat
 
-  def set_baud(self, baud: int) -> None:
+  def set_baud(self, baud):
     self.tty.baudrate = baud
 
-  def wait_for_ack(self, ack: bytes = UBLOX_ACK, nack: bytes = UBLOX_NACK, timeout: float = 0.5) -> bool:
+  def wait_for_ack(self, ack=UBLOX_ACK, nack=UBLOX_NACK, timeout=0.5):
     dat = b''
     st = time.monotonic()
     while True:
@@ -98,11 +99,11 @@ class TTYPigeon():
         raise TimeoutError('No response from ublox')
       time.sleep(0.001)
 
-  def send_with_ack(self, dat: bytes, ack: bytes = UBLOX_ACK, nack: bytes = UBLOX_NACK) -> None:
+  def send_with_ack(self, dat, ack=UBLOX_ACK, nack=UBLOX_NACK):
     self.send(dat)
     self.wait_for_ack(ack, nack)
 
-  def wait_for_backup_restore_status(self, timeout: float = 1.) -> int:
+  def wait_for_backup_restore_status(self, timeout=1):
     dat = b''
     st = time.monotonic()
     while True:
@@ -116,7 +117,7 @@ class TTYPigeon():
       time.sleep(0.001)
 
 
-def initialize_pigeon(pigeon: TTYPigeon) -> None:
+def initialize_pigeon(pigeon):
   # try initializing a few times
   for _ in range(10):
     try:
@@ -199,22 +200,21 @@ def initialize_pigeon(pigeon: TTYPigeon) -> None:
     except TimeoutError:
       cloudlog.warning("Initialization failed, trying again!")
 
-def deinitialize_and_exit(pigeon: Optional[TTYPigeon]):
+def deinitialize_and_exit(pigeon):
   cloudlog.warning("Storing almanac in ublox flash")
 
-  if pigeon is not None:
-    # controlled GNSS stop
-    pigeon.send(b"\xB5\x62\x06\x04\x04\x00\x00\x00\x08\x00\x16\x74")
+  # controlled GNSS stop
+  pigeon.send(b"\xB5\x62\x06\x04\x04\x00\x00\x00\x08\x00\x16\x74")
 
-    # store almanac in flash
-    pigeon.send(b"\xB5\x62\x09\x14\x04\x00\x00\x00\x00\x00\x21\xEC")
-    try:
-      if pigeon.wait_for_ack(ack=UBLOX_SOS_ACK, nack=UBLOX_SOS_NACK):
-        cloudlog.warning("Done storing almanac")
-      else:
-        cloudlog.error("Error storing almanac")
-    except TimeoutError:
-      pass
+  # store almanac in flash
+  pigeon.send(b"\xB5\x62\x09\x14\x04\x00\x00\x00\x00\x00\x21\xEC")
+  try:
+    if pigeon.wait_for_ack(ack=UBLOX_SOS_ACK, nack=UBLOX_SOS_NACK):
+      cloudlog.warning("Done storing almanac")
+    else:
+      cloudlog.error("Error storing almanac")
+  except TimeoutError:
+    pass
 
   # turn off power and exit cleanly
   set_power(False)
@@ -222,10 +222,6 @@ def deinitialize_and_exit(pigeon: Optional[TTYPigeon]):
 
 def main():
   assert TICI, "unsupported hardware for pigeond"
-
-  # register exit handler
-  pigeon = None
-  signal.signal(signal.SIGINT, lambda sig, frame: deinitialize_and_exit(pigeon))
 
   pm = messaging.PubMaster(['ubloxRaw'])
 
@@ -235,8 +231,11 @@ def main():
   set_power(True)
   time.sleep(0.5)
 
-  pigeon = TTYPigeon()
+  pigeon = TTYPigeon(UBLOX_TTY)
   initialize_pigeon(pigeon)
+
+  # register exit handler
+  signal.signal(signal.SIGINT, lambda sig, frame: deinitialize_and_exit(pigeon))
 
   # start receiving data
   while True:
