@@ -73,6 +73,8 @@ modeld
 .. autodoxygenindex::
    :project: selfdrive_modeld_models
 .. autodoxygenindex::
+   :project: selfdrive_modeld_thneed
+.. autodoxygenindex::
    :project: selfdrive_modeld_runners
 
 common

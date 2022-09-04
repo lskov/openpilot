@@ -107,7 +107,7 @@ void Installer::doInstall() {
     qDebug() << "Waiting for valid time";
   }
 
-  // cleanup previous install attempts
+  // cleanup previous install attemps
   run("rm -rf " TMP_INSTALL_PATH " " INSTALL_PATH);
 
   // do the install

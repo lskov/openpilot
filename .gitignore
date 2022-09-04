@@ -36,7 +36,6 @@ a.out
 config.json
 clcache
 compile_commands.json
-compare_runtime*.html
 
 persist
 board/obj/

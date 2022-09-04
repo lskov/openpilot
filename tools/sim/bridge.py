@@ -346,7 +346,7 @@ class CarlaBridge:
 
     vehicle_state = VehicleState()
 
-    # re-enable IMU
+    # reenable IMU
     imu_bp = blueprint_library.find('sensor.other.imu')
     imu = world.spawn_actor(imu_bp, transform, attach_to=vehicle)
     imu.listen(lambda imu: imu_callback(imu, vehicle_state))

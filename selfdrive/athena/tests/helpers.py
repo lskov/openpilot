@@ -116,7 +116,7 @@ def with_http_server(func):
     with Timeout(2, 'HTTP Server seeding failed'):
       while True:
         try:
-          requests.put(f'http://{host}:{port}/qlog.bz2', data='', timeout=10)
+          requests.put(f'http://{host}:{port}/qlog.bz2', data='')
           break
         except requests.exceptions.ConnectionError:
           time.sleep(0.1)
