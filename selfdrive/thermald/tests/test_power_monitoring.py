@@ -18,7 +18,7 @@ with patch("common.realtime.sec_since_boot", new=mock_sec_since_boot):
                                                     CAR_CHARGING_RATE_W, VBATT_PAUSE_CHARGING, DELAY_SHUTDOWN_TIME_S
 
 TEST_DURATION_S = 50
-GOOD_VOLTAGE = 11 * 1e3
+GOOD_VOLTAGE = 12 * 1e3
 VOLTAGE_BELOW_PAUSE_CHARGING = (VBATT_PAUSE_CHARGING - 1) * 1e3
 
 def pm_patch(name, value, constant=False):
