@@ -5,63 +5,62 @@ import os
 import sys
 from collections import defaultdict
 from tqdm import tqdm
-from typing import Any, DefaultDict, Dict
+from typing import Any
 
-from openpilot.selfdrive.car.car_helpers import interface_names
-from openpilot.selfdrive.test.openpilotci import get_url, upload_file
+from opendbc.car.car_helpers import interface_names
+from openpilot.common.git import get_commit
+from openpilot.tools.lib.openpilotci import get_url, upload_file
 from openpilot.selfdrive.test.process_replay.compare_logs import compare_logs, format_diff
-from openpilot.selfdrive.test.process_replay.process_replay import CONFIGS, PROC_REPLAY_DIR, FAKEDATA, check_openpilot_enabled, replay_process
-from openpilot.system.version import get_commit
+from openpilot.selfdrive.test.process_replay.process_replay import CONFIGS, PROC_REPLAY_DIR, FAKEDATA, replay_process, \
+                                                                   check_openpilot_enabled, check_most_messages_valid
 from openpilot.tools.lib.filereader import FileReader
-from openpilot.tools.lib.logreader import LogReader
-from openpilot.tools.lib.helpers import save_log
+from openpilot.tools.lib.logreader import LogReader, save_log
 
 source_segments = [
-  ("BODY", "937ccb7243511b65|2022-05-24--16-03-09--1"),        # COMMA.BODY
-  ("HYUNDAI", "02c45f73a2e5c6e9|2021-01-01--19-08-22--1"),     # HYUNDAI.SONATA
-  ("HYUNDAI2", "d545129f3ca90f28|2022-11-07--20-43-08--3"),    # HYUNDAI.KIA_EV6 (+ QCOM GPS)
-  ("TOYOTA", "0982d79ebb0de295|2021-01-04--17-13-21--13"),     # TOYOTA.PRIUS
-  ("TOYOTA2", "0982d79ebb0de295|2021-01-03--20-03-36--6"),     # TOYOTA.RAV4
-  ("TOYOTA3", "f7d7e3538cda1a2a|2021-08-16--08-55-34--6"),     # TOYOTA.COROLLA_TSS2
-  ("HONDA", "eb140f119469d9ab|2021-06-12--10-46-24--27"),      # HONDA.CIVIC (NIDEC)
-  ("HONDA2", "7d2244f34d1bbcda|2021-06-25--12-25-37--26"),     # HONDA.ACCORD (BOSCH)
-  ("CHRYSLER", "4deb27de11bee626|2021-02-20--11-28-55--8"),    # CHRYSLER.PACIFICA_2018_HYBRID
-  ("RAM", "17fc16d840fe9d21|2023-04-26--13-28-44--5"),         # CHRYSLER.RAM_1500
-  ("SUBARU", "341dccd5359e3c97|2022-09-12--10-35-33--3"),      # SUBARU.OUTBACK
-  ("GM", "0c58b6a25109da2b|2021-02-23--16-35-50--11"),         # GM.VOLT
-  ("GM2", "376bf99325883932|2022-10-27--13-41-22--1"),         # GM.BOLT_EUV
-  ("NISSAN", "35336926920f3571|2021-02-12--18-38-48--46"),     # NISSAN.XTRAIL
-  ("VOLKSWAGEN", "de9592456ad7d144|2021-06-29--11-00-15--6"),  # VOLKSWAGEN.GOLF
-  ("MAZDA", "bd6a637565e91581|2021-10-30--15-14-53--4"),       # MAZDA.CX9_2021
-  ("FORD", "54827bf84c38b14f|2023-01-26--21-59-07--4"),        # FORD.BRONCO_SPORT_MK1
+  ("BODY", "937ccb7243511b65|2022-05-24--16-03-09--1"),        # COMMA.COMMA_BODY
+  ("HYUNDAI", "02c45f73a2e5c6e9|2021-01-01--19-08-22--1"),     # HYUNDAI.HYUNDAI_SONATA
+  ("HYUNDAI2", "d545129f3ca90f28|2022-11-07--20-43-08--3"),    # HYUNDAI.HYUNDAI_KIA_EV6 (+ QCOM GPS)
+  ("TOYOTA", "0982d79ebb0de295|2021-01-04--17-13-21--13"),     # TOYOTA.TOYOTA_PRIUS
+  ("TOYOTA2", "0982d79ebb0de295|2021-01-03--20-03-36--6"),     # TOYOTA.TOYOTA_RAV4
+  ("TOYOTA3", "f7d7e3538cda1a2a|2021-08-16--08-55-34--6"),     # TOYOTA.TOYOTA_COROLLA_TSS2
+  ("HONDA", "eb140f119469d9ab|2021-06-12--10-46-24--27"),      # HONDA.HONDA_CIVIC (NIDEC)
+  ("HONDA2", "7d2244f34d1bbcda|2021-06-25--12-25-37--26"),     # HONDA.HONDA_ACCORD (BOSCH)
+  ("CHRYSLER", "4deb27de11bee626|2021-02-20--11-28-55--8"),    # CHRYSLER.CHRYSLER_PACIFICA_2018_HYBRID
+  ("RAM", "17fc16d840fe9d21|2023-04-26--13-28-44--5"),         # CHRYSLER.RAM_1500_5TH_GEN
+  ("SUBARU", "341dccd5359e3c97|2022-09-12--10-35-33--3"),      # SUBARU.SUBARU_OUTBACK
+  ("GM", "0c58b6a25109da2b|2021-02-23--16-35-50--11"),         # GM.CHEVROLET_VOLT
+  ("GM2", "376bf99325883932|2022-10-27--13-41-22--1"),         # GM.CHEVROLET_BOLT_EUV
+  ("NISSAN", "35336926920f3571|2021-02-12--18-38-48--46"),     # NISSAN.NISSAN_XTRAIL
+  ("VOLKSWAGEN", "de9592456ad7d144|2021-06-29--11-00-15--6"),  # VOLKSWAGEN.VOLKSWAGEN_GOLF
+  ("MAZDA", "bd6a637565e91581|2021-10-30--15-14-53--4"),       # MAZDA.MAZDA_CX9_2021
+  ("FORD", "54827bf84c38b14f|2023-01-26--21-59-07--4"),        # FORD.FORD_BRONCO_SPORT_MK1
 
   # Enable when port is tested and dashcamOnly is no longer set
-  #("TESLA", "bb50caf5f0945ab1|2021-06-19--17-20-18--3"),      # TESLA.AP2_MODELS
-  #("VOLKSWAGEN2", "3cfdec54aa035f3f|2022-07-19--23-45-10--2"),  # VOLKSWAGEN.PASSAT_NMS
+  #("VOLKSWAGEN2", "3cfdec54aa035f3f|2022-07-19--23-45-10--2"),  # VOLKSWAGEN.VOLKSWAGEN_PASSAT_NMS
 ]
 
 segments = [
-  ("BODY", "aregenECF15D9E559|2023-05-10--14-26-40--0"),
-  ("HYUNDAI", "aregenAB9F543F70A|2023-05-10--14-28-25--0"),
-  ("HYUNDAI2", "aregen39F5A028F96|2023-05-10--14-31-00--0"),
-  ("TOYOTA", "aregen8D6A8B36E8D|2023-05-10--14-32-38--0"),
-  ("TOYOTA2", "aregenB1933C49809|2023-05-10--14-34-14--0"),
-  ("TOYOTA3", "aregen5D9915223DC|2023-05-10--14-36-43--0"),
-  ("HONDA", "aregen484B732B675|2023-05-10--14-38-23--0"),
-  ("HONDA2", "aregenAF6ACED4713|2023-05-10--14-40-01--0"),
-  ("CHRYSLER", "aregen99B094E1E2E|2023-05-10--14-41-40--0"),
-  ("RAM", "aregen5C2487E1EEB|2023-05-10--14-44-09--0"),
-  ("SUBARU", "aregen98D277B792E|2023-05-10--14-46-46--0"),
-  ("GM", "aregen377BA28D848|2023-05-10--14-48-28--0"),
-  ("GM2", "aregen7CA0CC0F0C2|2023-05-10--14-51-00--0"),
-  ("NISSAN", "aregen7097BF01563|2023-05-10--14-52-43--0"),
-  ("VOLKSWAGEN", "aregen765AF3D2CB5|2023-05-10--14-54-23--0"),
-  ("MAZDA", "aregen3053762FF2E|2023-05-10--14-56-53--0"),
-  ("FORD", "aregenDDE0F89FA1E|2023-05-10--14-59-26--0"),
-  ]
+  ("BODY", "regenA67A128BCD8|2024-08-30--02-36-22--0"),
+  ("HYUNDAI", "regen9CBD921E93E|2024-08-30--02-38-51--0"),
+  ("HYUNDAI2", "regen12E0C4EA1A7|2024-08-30--02-42-40--0"),
+  ("TOYOTA", "regen1CA7A48E6F7|2024-08-30--02-45-08--0"),
+  ("TOYOTA2", "regen6E484EDAB96|2024-08-30--02-47-37--0"),
+  ("TOYOTA3", "regen4CE950B0267|2024-08-30--02-51-30--0"),
+  ("HONDA", "regenC8F0D6ADC5C|2024-08-30--02-54-01--0"),
+  ("HONDA2", "regen4B38A7428CD|2024-08-30--02-56-31--0"),
+  ("CHRYSLER", "regenF3DBBA9E8DF|2024-08-30--02-59-03--0"),
+  ("RAM", "regenDB02684E00A|2024-08-30--03-02-54--0"),
+  ("SUBARU", "regenAA1FF48CF1F|2024-08-30--03-06-45--0"),
+  ("GM", "regen720F2BA4CF6|2024-08-30--03-09-15--0"),
+  ("GM2", "regen9ADBECBCD1C|2024-08-30--03-13-04--0"),
+  ("NISSAN", "regen58464878D07|2024-08-30--03-15-31--0"),
+  ("VOLKSWAGEN", "regenED976DEB757|2024-08-30--03-18-02--0"),
+  ("MAZDA", "regenACF84CCF482|2024-08-30--03-21-55--0"),
+  ("FORD", "regen6ECC59A6307|2024-08-30--03-25-42--0"),
+]
 
 # dashcamOnly makes don't need to be tested until a full port is done
-excluded_interfaces = ["mock", "tesla"]
+excluded_interfaces = ["mock"]
 
 BASE_URL = "https://commadataci.blob.core.windows.net/openpilotci/"
 REF_COMMIT_FN = os.path.join(PROC_REPLAY_DIR, "ref_commit")
@@ -87,7 +86,7 @@ def run_test_process(data):
 
 def get_log_data(segment):
   r, n = segment.rsplit("--", 1)
-  with FileReader(get_url(r, n)) as f:
+  with FileReader(get_url(r, n, "rlog.zst")) as f:
     return (segment, f.read())
 
 
@@ -108,6 +107,15 @@ def test_process(cfg, lr, segment, ref_log_path, new_log_path, ignore_fields=Non
   if cfg.proc_name == "controlsd":
     if not check_openpilot_enabled(log_msgs):
       return f"Route did not enable at all or for long enough: {new_log_path}", log_msgs
+  if not check_most_messages_valid(log_msgs):
+    return f"Route did not have enough valid messages: {new_log_path}", log_msgs
+
+  # skip this check if the segment is using qcom gps
+  if cfg.proc_name != 'ubloxd' or any(m.which() in cfg.pubs for m in lr):
+    seen_msgs = {m.which() for m in log_msgs}
+    expected_msgs = set(cfg.subs)
+    if seen_msgs != expected_msgs:
+      return f"Expected messages: {expected_msgs}, but got: {seen_msgs}", log_msgs
 
   try:
     return compare_logs(ref_log_msgs, log_msgs, ignore_fields + cfg.ignore, ignore_msgs, cfg.tolerance), log_msgs
@@ -154,13 +162,14 @@ if __name__ == "__main__":
     assert full_test, "Need to run full test when updating refs"
 
   try:
-    ref_commit = open(REF_COMMIT_FN).read().strip()
+    with open(REF_COMMIT_FN) as f:
+      ref_commit = f.read().strip()
   except FileNotFoundError:
     print("Couldn't find reference commit")
     sys.exit(1)
 
   cur_commit = get_commit()
-  if cur_commit is None:
+  if not cur_commit:
     raise Exception("Couldn't get current commit")
 
   print(f"***** testing against commit {ref_commit} *****")
@@ -170,11 +179,11 @@ if __name__ == "__main__":
     untested = (set(interface_names) - set(excluded_interfaces)) - {c.lower() for c in tested_cars}
     assert len(untested) == 0, f"Cars missing routes: {str(untested)}"
 
-  log_paths: DefaultDict[str, Dict[str, Dict[str, str]]] = defaultdict(lambda: defaultdict(dict))
+  log_paths: defaultdict[str, dict[str, dict[str, str]]] = defaultdict(lambda: defaultdict(dict))
   with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as pool:
     if not args.upload_only:
       download_segments = [seg for car, seg in segments if car in tested_cars]
-      log_data: Dict[str, LogReader] = {}
+      log_data: dict[str, LogReader] = {}
       p1 = pool.map(get_log_data, download_segments)
       for segment, lr in tqdm(p1, desc="Getting Logs", total=len(download_segments)):
         log_data[segment] = lr
@@ -188,11 +197,11 @@ if __name__ == "__main__":
         if cfg.proc_name not in tested_procs:
           continue
 
-        cur_log_fn = os.path.join(FAKEDATA, f"{segment}_{cfg.proc_name}_{cur_commit}.bz2")
+        cur_log_fn = os.path.join(FAKEDATA, f"{segment}_{cfg.proc_name}_{cur_commit}.zst")
         if args.update_refs:  # reference logs will not exist if routes were just regenerated
-          ref_log_path = get_url(*segment.rsplit("--", 1))
+          ref_log_path = get_url(*segment.rsplit("--", 1,), "rlog.zst")
         else:
-          ref_log_fn = os.path.join(FAKEDATA, f"{segment}_{cfg.proc_name}_{ref_commit}.bz2")
+          ref_log_fn = os.path.join(FAKEDATA, f"{segment}_{cfg.proc_name}_{ref_commit}.zst")
           ref_log_path = ref_log_fn if os.path.exists(ref_log_fn) else BASE_URL + os.path.basename(ref_log_fn)
 
         dat = None if args.upload_only else log_data[segment]

@@ -39,6 +39,7 @@ public:
   void showTip(double sec);
   void hideTip();
   void startAnimation();
+  double secondsAtPoint(const QPointF &pt) const { return chart()->mapToValue(pt).x(); }
 
   struct SigItem {
     MessageId msg_id;
@@ -76,7 +77,6 @@ private:
   void dragLeaveEvent(QDragLeaveEvent *event) override { drawDropIndicator(false); }
   void dragMoveEvent(QDragMoveEvent *event) override;
   void dropEvent(QDropEvent *event) override;
-  void leaveEvent(QEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;
   QSize sizeHint() const override;
   void updateAxisY();
@@ -108,7 +108,7 @@ private:
   QGraphicsPixmapItem *move_icon;
   QGraphicsProxyWidget *close_btn_proxy;
   QGraphicsProxyWidget *manage_btn_proxy;
-  TipLabel tip_label;
+  TipLabel *tip_label;
   std::vector<SigItem> sigs;
   double cur_sec = 0;
   SeriesType series_type = SeriesType::Line;

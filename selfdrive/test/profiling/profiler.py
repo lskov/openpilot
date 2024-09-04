@@ -5,19 +5,19 @@ import cProfile
 import pprofile
 import pyprof2calltree
 
+from opendbc.car.toyota.values import CAR as TOYOTA
+from opendbc.car.honda.values import CAR as HONDA
+from opendbc.car.volkswagen.values import CAR as VW
 from openpilot.common.params import Params
 from openpilot.tools.lib.logreader import LogReader
 from openpilot.selfdrive.test.profiling.lib import SubMaster, PubMaster, SubSocket, ReplayDone
 from openpilot.selfdrive.test.process_replay.process_replay import CONFIGS
-from openpilot.selfdrive.car.toyota.values import CAR as TOYOTA
-from openpilot.selfdrive.car.honda.values import CAR as HONDA
-from openpilot.selfdrive.car.volkswagen.values import CAR as VW
 
 BASE_URL = "https://commadataci.blob.core.windows.net/openpilotci/"
 
 CARS = {
-  'toyota': ("0982d79ebb0de295|2021-01-03--20-03-36/6", TOYOTA.RAV4),
-  'honda': ("0982d79ebb0de295|2021-01-08--10-13-10/6", HONDA.CIVIC),
+  'toyota': ("0982d79ebb0de295|2021-01-03--20-03-36/6", TOYOTA.TOYOTA_RAV4),
+  'honda': ("0982d79ebb0de295|2021-01-08--10-13-10/6", HONDA.HONDA_CIVIC),
   "vw": ("ef895f46af5fd73f|2021-05-22--14-06-35/6", VW.AUDI_A3_MK3),
 }
 
@@ -80,12 +80,10 @@ def profile(proc, func, car='toyota'):
 
 if __name__ == '__main__':
   from openpilot.selfdrive.controls.controlsd import main as controlsd_thread
-  from openpilot.selfdrive.controls.radard import radard_thread
   from openpilot.selfdrive.locationd.paramsd import main as paramsd_thread
   from openpilot.selfdrive.controls.plannerd import main as plannerd_thread
 
   procs = {
-    'radard': radard_thread,
     'controlsd': controlsd_thread,
     'paramsd': paramsd_thread,
     'plannerd': plannerd_thread,

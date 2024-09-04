@@ -1,4 +1,4 @@
-from collections import defaultdict, deque
+from collections import defaultdict
 from cereal.services import SERVICE_LIST
 import cereal.messaging as messaging
 import capnp
@@ -8,7 +8,7 @@ class ReplayDone(Exception):
   pass
 
 
-class SubSocket():
+class SubSocket:
   def __init__(self, msgs, trigger):
     self.i = 0
     self.trigger = trigger
@@ -28,7 +28,7 @@ class SubSocket():
       return msg
 
 
-class PubSocket():
+class PubSocket:
   def send(self, data):
     pass
 
@@ -45,7 +45,7 @@ class SubMaster(messaging.SubMaster):
     self.rcv_frame = {s: 0 for s in services}
     self.valid = {s: True for s in services}
     self.freq_ok = {s: True for s in services}
-    self.recv_dts = {s: deque([0.0] * messaging.AVG_FREQ_HISTORY, maxlen=messaging.AVG_FREQ_HISTORY) for s in services}
+    self.freq_tracker = {s: messaging.FrequencyTracker(SERVICE_LIST[s].frequency, SERVICE_LIST[s].frequency, False) for s in services}
     self.logMonoTime = {}
     self.sock = {}
     self.freq = {}

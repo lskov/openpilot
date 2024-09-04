@@ -48,6 +48,7 @@ Networking::Networking(QWidget* parent, bool show_advanced) : QFrame(parent) {
 
   an = new AdvancedNetworking(this, wifi);
   connect(an, &AdvancedNetworking::backPress, [=]() { main_layout->setCurrentWidget(wifiScreen); });
+  connect(an, &AdvancedNetworking::requestWifiScreen, [=]() { main_layout->setCurrentWidget(wifiScreen); });
   main_layout->addWidget(an);
 
   QPalette pal = palette();
@@ -81,11 +82,11 @@ void Networking::connectToNetwork(const Network n) {
   if (wifi->isKnownConnection(n.ssid)) {
     wifi->activateWifiConnection(n.ssid);
   } else if (n.security_type == SecurityType::OPEN) {
-    wifi->connect(n);
+    wifi->connect(n, false);
   } else if (n.security_type == SecurityType::WPA) {
     QString pass = InputDialog::getText(tr("Enter password"), this, tr("for \"%1\"").arg(QString::fromUtf8(n.ssid)), true, 8);
     if (!pass.isEmpty()) {
-      wifi->connect(n, pass);
+      wifi->connect(n, false, pass);
     }
   }
 }
@@ -95,7 +96,7 @@ void Networking::wrongPassword(const QString &ssid) {
     const Network &n = wifi->seenNetworks.value(ssid);
     QString pass = InputDialog::getText(tr("Wrong password"), this, tr("for \"%1\"").arg(QString::fromUtf8(n.ssid)), true, 8);
     if (!pass.isEmpty()) {
-      wifi->connect(n, pass);
+      wifi->connect(n, false, pass);
     }
   }
 }
@@ -105,6 +106,7 @@ void Networking::showEvent(QShowEvent *event) {
 }
 
 void Networking::hideEvent(QHideEvent *event) {
+  main_layout->setCurrentWidget(wifiScreen);
   wifi->stop();
 }
 
@@ -180,11 +182,30 @@ AdvancedNetworking::AdvancedNetworking(QWidget* parent, WifiManager* wifi): QWid
   });
   list->addItem(meteredToggle);
 
+  // Hidden Network
+  hiddenNetworkButton = new ButtonControl(tr("Hidden Network"), tr("CONNECT"));
+  connect(hiddenNetworkButton, &ButtonControl::clicked, [=]() {
+    QString ssid = InputDialog::getText(tr("Enter SSID"), this, "", false, 1);
+    if (!ssid.isEmpty()) {
+      QString pass = InputDialog::getText(tr("Enter password"), this, tr("for \"%1\"").arg(ssid), true, -1);
+      Network hidden_network;
+      hidden_network.ssid = ssid.toUtf8();
+      if (!pass.isEmpty()) {
+        hidden_network.security_type = SecurityType::WPA;
+        wifi->connect(hidden_network, true, pass);
+      } else {
+        wifi->connect(hidden_network, true);
+      }
+      emit requestWifiScreen();
+    }
+  });
+  list->addItem(hiddenNetworkButton);
+
   // Set initial config
   wifi->updateGsmSettings(roamingEnabled, QString::fromStdString(params.get("GsmApn")), metered);
 
   connect(uiState(), &UIState::primeTypeChanged, this, [=](PrimeType prime_type) {
-    bool gsmVisible = prime_type == PrimeType::NONE || prime_type == PrimeType::LITE;
+    bool gsmVisible = prime_type == PrimeType::PRIME_TYPE_NONE || prime_type == PrimeType::PRIME_TYPE_LITE;
     roamingToggle->setVisible(gsmVisible);
     editApnButton->setVisible(gsmVisible);
     meteredToggle->setVisible(gsmVisible);

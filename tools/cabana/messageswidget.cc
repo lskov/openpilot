@@ -1,34 +1,41 @@
 #include "tools/cabana/messageswidget.h"
 
 #include <limits>
+#include <utility>
 
 #include <QCheckBox>
 #include <QHBoxLayout>
 #include <QPainter>
+#include <QPalette>
 #include <QPushButton>
 #include <QScrollBar>
 #include <QVBoxLayout>
 
 #include "tools/cabana/commands.h"
 
-static QString msg_node_from_id(const MessageId &id) {
-  auto msg = dbc()->msg(id);
-  return msg ? msg->transmitter : QString();
+static bool isMessageActive(const MessageId &id) {
+  if (auto dummy_stream = dynamic_cast<DummyStream *>(can)) {
+    return true;
+  }
+  if (id.source == INVALID_SOURCE) {
+    return false;
+  }
+  // Check if the message is active based on time difference and frequency
+  const auto &m = can->lastMessage(id);
+  float delta = can->currentSec() - m.ts;
+  return (m.freq == 0 && delta < 1.5) || (m.freq > 0 && ((delta - 1.0 / settings.fps) < (5.0 / m.freq)));
 }
 
 MessagesWidget::MessagesWidget(QWidget *parent) : menu(new QMenu(this)), QWidget(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setContentsMargins(0, 0, 0, 0);
-  main_layout->setSpacing(0);
   // toolbar
   main_layout->addWidget(createToolBar());
   // message table
-  view = new MessageView(this);
-  model = new MessageListModel(this);
-  header = new MessageViewHeader(this);
-  view->setItemDelegate(delegate = new MessageBytesDelegate(view, settings.multiple_lines_bytes));
-  view->setHeader(header);
-  view->setModel(model);
+  main_layout->addWidget(view = new MessageView(this));
+  view->setItemDelegate(delegate = new MessageBytesDelegate(view, settings.multiple_lines_hex));
+  view->setModel(model = new MessageListModel(this));
+  view->setHeader(header = new MessageViewHeader(this));
   view->setSortingEnabled(true);
   view->sortByColumn(MessageListModel::Column::NAME, Qt::AscendingOrder);
   view->setAllColumnsShowFocus(true);
@@ -44,56 +51,29 @@ MessagesWidget::MessagesWidget(QWidget *parent) : menu(new QMenu(this)), QWidget
   header->setStretchLastSection(true);
   header->setContextMenuPolicy(Qt::CustomContextMenu);
 
-  main_layout->addWidget(view);
-
-  // suppress
-  QHBoxLayout *suppress_layout = new QHBoxLayout();
-  suppress_add = new QPushButton("Suppress Highlighted");
-  suppress_clear = new QPushButton();
-  suppress_layout->addWidget(suppress_add);
-  suppress_layout->addWidget(suppress_clear);
-  QCheckBox *suppress_defined_signals = new QCheckBox(tr("Suppress Defined Signals"), this);
-  suppress_defined_signals->setChecked(settings.suppress_defined_signals);
-  suppress_layout->addWidget(suppress_defined_signals);
-  main_layout->addLayout(suppress_layout);
-
   // signals/slots
   QObject::connect(menu, &QMenu::aboutToShow, this, &MessagesWidget::menuAboutToShow);
-  QObject::connect(header, &MessageViewHeader::filtersUpdated, model, &MessageListModel::setFilterStrings);
   QObject::connect(header, &MessageViewHeader::customContextMenuRequested, this, &MessagesWidget::headerContextMenuEvent);
   QObject::connect(view->horizontalScrollBar(), &QScrollBar::valueChanged, header, &MessageViewHeader::updateHeaderPositions);
-  QObject::connect(suppress_defined_signals, &QCheckBox::stateChanged, [=](int state) {
-    settings.suppress_defined_signals = (state == Qt::Checked);
-    emit settings.changed();
-  });
   QObject::connect(can, &AbstractStream::msgsReceived, model, &MessageListModel::msgsReceived);
-  QObject::connect(dbc(), &DBCManager::DBCFileChanged, this, &MessagesWidget::dbcModified);
-  QObject::connect(UndoStack::instance(), &QUndoStack::indexChanged, this, &MessagesWidget::dbcModified);
+  QObject::connect(dbc(), &DBCManager::DBCFileChanged, model, &MessageListModel::dbcModified);
+  QObject::connect(UndoStack::instance(), &QUndoStack::indexChanged, model, &MessageListModel::dbcModified);
   QObject::connect(model, &MessageListModel::modelReset, [this]() {
     if (current_msg_id) {
       selectMessage(*current_msg_id);
     }
     view->updateBytesSectionSize();
+    updateTitle();
   });
   QObject::connect(view->selectionModel(), &QItemSelectionModel::currentChanged, [=](const QModelIndex &current, const QModelIndex &previous) {
-    if (current.isValid() && current.row() < model->msgs.size()) {
-      auto &id = model->msgs[current.row()];
+    if (current.isValid() && current.row() < model->items_.size()) {
+      const auto &id = model->items_[current.row()].id;
       if (!current_msg_id || id != *current_msg_id) {
         current_msg_id = id;
         emit msgSelectionChanged(*current_msg_id);
       }
     }
   });
-  QObject::connect(suppress_add, &QPushButton::clicked, [=]() {
-    model->suppress();
-    updateSuppressedButtons();
-  });
-  QObject::connect(suppress_clear, &QPushButton::clicked, [=]() {
-    model->clearSuppress();
-    updateSuppressedButtons();
-  });
-
-  updateSuppressedButtons();
 
   setWhatsThis(tr(R"(
     <b>Message View</b><br/>
@@ -101,45 +81,62 @@ MessagesWidget::MessagesWidget(QWidget *parent) : menu(new QMenu(this)), QWidget
     <span style="color:gray">Byte color</span><br />
     <span style="color:gray;">■ </span> constant changing<br />
     <span style="color:blue;">■ </span> increasing<br />
-    <span style="color:red;">■ </span> decreasing
+    <span style="color:red;">■ </span> decreasing<br />
+    <span style="color:gray">Shortcuts</span><br />
+    Horizontal Scrolling: <span style="background-color:lightGray;color:gray">&nbsp;shift+wheel&nbsp;</span>
   )"));
 }
 
-QToolBar *MessagesWidget::createToolBar() {
-  QToolBar *toolbar = new QToolBar(this);
-  toolbar->setIconSize({12, 12});
-  toolbar->addWidget(num_msg_label = new QLabel(this));
-  num_msg_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+QWidget *MessagesWidget::createToolBar() {
+  QWidget *toolbar = new QWidget(this);
+  QHBoxLayout *layout = new QHBoxLayout(toolbar);
+  layout->setContentsMargins(0, 9, 0, 0);
+  layout->addWidget(suppress_add = new QPushButton("Suppress Highlighted"));
+  layout->addWidget(suppress_clear = new QPushButton());
+  suppress_clear->setToolTip(tr("Clear suppressed"));
+  layout->addStretch(1);
+  QCheckBox *suppress_defined_signals = new QCheckBox(tr("Suppress Signals"), this);
+  suppress_defined_signals->setToolTip(tr("Suppress defined signals"));
+  suppress_defined_signals->setChecked(settings.suppress_defined_signals);
+  layout->addWidget(suppress_defined_signals);
 
-  auto views_btn = toolbar->addAction(utils::icon("three-dots"), tr("View..."));
-  views_btn->setMenu(menu);
-  auto view_button = qobject_cast<QToolButton *>(toolbar->widgetForAction(views_btn));
+  auto view_button = new ToolButton("three-dots", tr("View..."));
+  view_button->setMenu(menu);
   view_button->setPopupMode(QToolButton::InstantPopup);
-  view_button->setToolButtonStyle(Qt::ToolButtonIconOnly);
   view_button->setStyleSheet("QToolButton::menu-indicator { image: none; }");
+  layout->addWidget(view_button);
+
+  QObject::connect(suppress_add, &QPushButton::clicked, this, &MessagesWidget::suppressHighlighted);
+  QObject::connect(suppress_clear, &QPushButton::clicked, this, &MessagesWidget::suppressHighlighted);
+  QObject::connect(suppress_defined_signals, &QCheckBox::stateChanged, can, &AbstractStream::suppressDefinedSignals);
+
+  suppressHighlighted();
   return toolbar;
 }
 
-void MessagesWidget::dbcModified() {
-  num_msg_label->setText(tr("%1 Messages, %2 Signals").arg(dbc()->msgCount()).arg(dbc()->signalCount()));
-  model->dbcModified();
+void MessagesWidget::updateTitle() {
+  auto stats = std::accumulate(
+      model->items_.begin(), model->items_.end(), std::pair<size_t, size_t>(),
+      [](const auto &pair, const auto &item) {
+        auto m = dbc()->msg(item.id);
+        return m ? std::make_pair(pair.first + 1, pair.second + m->sigs.size()) : pair;
+      });
+  emit titleChanged(tr("%1 Messages (%2 DBC Messages, %3 Signals)")
+                      .arg(model->items_.size()).arg(stats.first).arg(stats.second));
 }
 
 void MessagesWidget::selectMessage(const MessageId &msg_id) {
-  auto it = std::find(model->msgs.cbegin(), model->msgs.cend(), msg_id);
-  if (it != model->msgs.cend()) {
-    view->setCurrentIndex(model->index(std::distance(model->msgs.cbegin(), it), 0));
+  auto it = std::find_if(model->items_.cbegin(), model->items_.cend(),
+                         [&msg_id](auto &item) { return item.id == msg_id; });
+  if (it != model->items_.cend()) {
+    view->setCurrentIndex(model->index(std::distance(model->items_.cbegin(), it), 0));
   }
 }
 
-void MessagesWidget::updateSuppressedButtons() {
-  if (model->suppressed_bytes.empty()) {
-    suppress_clear->setEnabled(false);
-    suppress_clear->setText("Clear Suppressed");
-  } else {
-    suppress_clear->setEnabled(true);
-    suppress_clear->setText(QString("Clear Suppressed (%1)").arg(model->suppressed_bytes.size()));
-  }
+void MessagesWidget::suppressHighlighted() {
+  int n = sender() == suppress_add ? can->suppressHighlighted() : (can->clearSuppressed(), 0);
+  suppress_clear->setText(n > 0 ? tr("Clear (%1)").arg(n) : tr("Clear"));
+  suppress_clear->setEnabled(n > 0);
 }
 
 void MessagesWidget::headerContextMenuEvent(const QPoint &pos) {
@@ -158,13 +155,17 @@ void MessagesWidget::menuAboutToShow() {
     action->setEnabled(logical_index > 0);
   }
   menu->addSeparator();
-  auto action = menu->addAction(tr("Mutlti-Line bytes"), this, &MessagesWidget::setMultiLineBytes);
+  auto action = menu->addAction(tr("Multi-Line bytes"), this, &MessagesWidget::setMultiLineBytes);
   action->setCheckable(true);
-  action->setChecked(settings.multiple_lines_bytes);
+  action->setChecked(settings.multiple_lines_hex);
+
+  action = menu->addAction(tr("Show inactive Messages"), model, &MessageListModel::showInactivemessages);
+  action->setCheckable(true);
+  action->setChecked(model->show_inactive_messages);
 }
 
 void MessagesWidget::setMultiLineBytes(bool multi) {
-  settings.multiple_lines_bytes = multi;
+  settings.multiple_lines_hex = multi;
   delegate->setMultipleLines(multi);
   view->updateBytesSectionSize();
   view->doItemsLayout();
@@ -188,43 +189,37 @@ QVariant MessageListModel::headerData(int section, Qt::Orientation orientation, 
 }
 
 QVariant MessageListModel::data(const QModelIndex &index, int role) const {
-  if (!index.isValid() || index.row() >= msgs.size()) return {};
+  if (!index.isValid() || index.row() >= items_.size()) return {};
 
-  auto getFreq = [](const CanData &d) {
-    if (d.freq > 0 && (can->currentSec() - d.ts - 1.0 / settings.fps) < (5.0 / d.freq)) {
-      return d.freq >= 0.95 ? QString::number(std::nearbyint(d.freq)) : QString::number(d.freq, 'f', 2);
+  auto getFreq = [](float freq) {
+    if (freq > 0) {
+      return freq >= 0.95 ? QString::number(std::nearbyint(freq)) : QString::number(freq, 'f', 2);
     } else {
       return QStringLiteral("--");
     }
   };
 
-  const auto &id = msgs[index.row()];
-  auto &can_data = can->lastMessage(id);
+  const static QString NA =  QStringLiteral("N/A");
+  const auto &item = items_[index.row()];
   if (role == Qt::DisplayRole) {
     switch (index.column()) {
-      case Column::NAME: return msgName(id);
-      case Column::SOURCE: return id.source != INVALID_SOURCE ? QString::number(id.source) : "N/A";
-      case Column::ADDRESS: return QString::number(id.address, 16);
-      case Column::NODE: return msg_node_from_id(id);
-      case Column::FREQ: return id.source != INVALID_SOURCE ? getFreq(can_data) : "N/A";
-      case Column::COUNT: return id.source != INVALID_SOURCE ? QString::number(can_data.count) : "N/A";
-      case Column::DATA: return id.source != INVALID_SOURCE ? toHex(can_data.dat) : "N/A";
+      case Column::NAME: return item.name;
+      case Column::SOURCE: return item.id.source != INVALID_SOURCE ? QString::number(item.id.source) : NA;
+      case Column::ADDRESS: return QString::number(item.id.address, 16);
+      case Column::NODE: return item.node;
+      case Column::FREQ: return item.id.source != INVALID_SOURCE ? getFreq(can->lastMessage(item.id).freq) : NA;
+      case Column::COUNT: return item.id.source != INVALID_SOURCE ? QString::number(can->lastMessage(item.id).count) : NA;
+      case Column::DATA: return item.id.source != INVALID_SOURCE ? "" : NA;
     }
   } else if (role == ColorsRole) {
-    QVector<QColor> colors = can_data.colors;
-    if (!suppressed_bytes.empty()) {
-      for (int i = 0; i < colors.size(); i++) {
-        if (suppressed_bytes.contains({id, i})) {
-          colors[i] = QColor(255, 255, 255, 0);
-        }
-      }
-    }
-    return QVariant::fromValue(colors);
-  } else if (role == BytesRole && index.column() == Column::DATA && id.source != INVALID_SOURCE) {
-    return can_data.dat;
+    return QVariant::fromValue((void*)(&can->lastMessage(item.id).colors));
+  } else if (role == BytesRole && index.column() == Column::DATA && item.id.source != INVALID_SOURCE) {
+    return QVariant::fromValue((void*)(&can->lastMessage(item.id).dat));
+  } else if (role == Qt::ForegroundRole && !item.active) {
+    return settings.theme == DARK_THEME ? QApplication::palette().color(QPalette::Text).darker(150) : QColor(Qt::gray);
   } else if (role == Qt::ToolTipRole && index.column() == Column::NAME) {
-    auto msg = dbc()->msg(id);
-    auto tooltip = msg ? msg->name : UNTITLED;
+    auto msg = dbc()->msg(item.id);
+    auto tooltip = item.name;
     if (msg && !msg->comment.isEmpty()) tooltip += "<br /><span style=\"color:gray;\">" + msg->comment + "</span>";
     return tooltip;
   }
@@ -232,32 +227,40 @@ QVariant MessageListModel::data(const QModelIndex &index, int role) const {
 }
 
 void MessageListModel::setFilterStrings(const QMap<int, QString> &filters) {
-  filter_str = filters;
+  filters_ = filters;
+  filterAndSort();
+}
+
+void MessageListModel::showInactivemessages(bool show) {
+  show_inactive_messages = show;
   filterAndSort();
 }
 
 void MessageListModel::dbcModified() {
-  dbc_address.clear();
+  dbc_messages_.clear();
   for (const auto &[_, m] : dbc()->getMessages(-1)) {
-    dbc_address.insert(m.address);
+    dbc_messages_.insert(MessageId{.source = INVALID_SOURCE, .address = m.address});
   }
   filterAndSort();
 }
 
-void MessageListModel::sortMessages(std::vector<MessageId> &new_msgs) {
-  auto do_sort = [order = sort_order](std::vector<MessageId> &m, auto proj) {
-    std::sort(m.begin(), m.end(), [order, proj = std::move(proj)](auto &l, auto &r) {
-      return order == Qt::AscendingOrder ? proj(l) < proj(r) : proj(l) > proj(r);
-    });
+void MessageListModel::sortItems(std::vector<MessageListModel::Item> &items) {
+  auto compare = [this](const auto &l, const auto &r) {
+    switch (sort_column) {
+      case Column::NAME: return std::tie(l.name, l.id) < std::tie(r.name, r.id);
+      case Column::SOURCE: return std::tie(l.id.source, l.id.address) < std::tie(r.id.source, r.id.address);
+      case Column::ADDRESS: return std::tie(l.id.address, l.id.source) < std::tie(r.id.address, r.id.source);
+      case Column::NODE: return std::tie(l.node, l.id) < std::tie(r.node, r.id);
+      case Column::FREQ: return std::tie(can->lastMessage(l.id).freq, l.id) < std::tie(can->lastMessage(r.id).freq, r.id);
+      case Column::COUNT: return std::tie(can->lastMessage(l.id).count, l.id) < std::tie(can->lastMessage(r.id).count, r.id);
+      default: return false; // Default case to suppress compiler warning
+    }
   };
-  switch (sort_column) {
-    case Column::NAME: do_sort(new_msgs, [](auto &id) { return std::make_pair(msgName(id), id); }); break;
-    case Column::SOURCE: do_sort(new_msgs, [](auto &id) { return std::tie(id.source, id); }); break;
-    case Column::ADDRESS: do_sort(new_msgs, [](auto &id) { return std::tie(id.address, id);}); break;
-    case Column::NODE: do_sort(new_msgs, [](auto &id) { return std::make_pair(msg_node_from_id(id), id);}); break;
-    case Column::FREQ: do_sort(new_msgs, [](auto &id) { return std::tie(can->lastMessage(id).freq, id); }); break;
-    case Column::COUNT: do_sort(new_msgs, [](auto &id) { return std::tie(can->lastMessage(id).count, id); }); break;
-  }
+
+  if (sort_order == Qt::DescendingOrder)
+    std::stable_sort(items.rbegin(), items.rend(), compare);
+  else
+    std::stable_sort(items.begin(), items.end(), compare);
 }
 
 static bool parseRange(const QString &filter, uint32_t value, int base = 10) {
@@ -275,133 +278,123 @@ static bool parseRange(const QString &filter, uint32_t value, int base = 10) {
   return ok && value >= min && value <= max;
 }
 
-bool MessageListModel::matchMessage(const MessageId &id, const CanData &data, const QMap<int, QString> &filters) {
+bool MessageListModel::match(const MessageListModel::Item &item) {
+  if (filters_.isEmpty())
+    return true;
+
   bool match = true;
-  for (auto it = filters.cbegin(); it != filters.cend() && match; ++it) {
+  const auto &data = can->lastMessage(item.id);
+  for (auto it = filters_.cbegin(); it != filters_.cend() && match; ++it) {
     const QString &txt = it.value();
-    QRegularExpression re(txt, QRegularExpression::CaseInsensitiveOption | QRegularExpression::DotMatchesEverythingOption);
     switch (it.key()) {
       case Column::NAME: {
-        const auto msg = dbc()->msg(id);
-        match = re.match(msg ? msg->name : UNTITLED).hasMatch();
-        match = match || (msg && std::any_of(msg->sigs.cbegin(), msg->sigs.cend(),
-                                             [&re](const auto &s) { return re.match(s->name).hasMatch(); }));
+        match = item.name.contains(txt, Qt::CaseInsensitive);
+        if (!match) {
+          const auto m = dbc()->msg(item.id);
+          match = m && std::any_of(m->sigs.cbegin(), m->sigs.cend(),
+                                   [&txt](const auto &s) { return s->name.contains(txt, Qt::CaseInsensitive); });
+        }
         break;
       }
       case Column::SOURCE:
-        match = parseRange(txt, id.source);
+        match = parseRange(txt, item.id.source);
         break;
-      case Column::ADDRESS: {
-        match = re.match(QString::number(id.address, 16)).hasMatch();
-        match = match || parseRange(txt, id.address, 16);
+      case Column::ADDRESS:
+        match = QString::number(item.id.address, 16).contains(txt, Qt::CaseInsensitive);
+        match = match || parseRange(txt, item.id.address, 16);
         break;
-      }
       case Column::NODE:
-        match = re.match(msg_node_from_id(id)).hasMatch();
+        match = item.node.contains(txt, Qt::CaseInsensitive);
         break;
       case Column::FREQ:
-        // TODO: Hide stale messages?
         match = parseRange(txt, data.freq);
         break;
       case Column::COUNT:
         match = parseRange(txt, data.count);
         break;
-      case Column::DATA: {
-        match = QString(data.dat.toHex()).contains(txt, Qt::CaseInsensitive);
-        match = match || re.match(QString(data.dat.toHex())).hasMatch();
-        match = match || re.match(QString(data.dat.toHex(' '))).hasMatch();
+      case Column::DATA:
+        match = utils::toHex(data.dat).contains(txt, Qt::CaseInsensitive);
         break;
-      }
     }
   }
   return match;
 }
 
-void MessageListModel::filterAndSort() {
-  std::vector<MessageId> new_msgs;
-  new_msgs.reserve(can->last_msgs.size() + dbc_address.size());
-
-  auto address = dbc_address;
-  for (auto it = can->last_msgs.cbegin(); it != can->last_msgs.cend(); ++it) {
-    if (filter_str.isEmpty() || matchMessage(it.key(), it.value(), filter_str)) {
-      new_msgs.push_back(it.key());
-    }
-    address.remove(it.key().address);
+bool MessageListModel::filterAndSort() {
+  // merge CAN and DBC messages
+  std::vector<MessageId> all_messages;
+  all_messages.reserve(can->lastMessages().size() + dbc_messages_.size());
+  auto dbc_msgs = dbc_messages_;
+  for (const auto &[id, m] : can->lastMessages()) {
+    all_messages.push_back(id);
+    dbc_msgs.erase(MessageId{.source = INVALID_SOURCE, .address = id.address});
   }
+  all_messages.insert(all_messages.end(), dbc_msgs.begin(), dbc_msgs.end());
 
-  // merge all DBC messages
-  for (auto &addr : address) {
-    MessageId id{.source = INVALID_SOURCE, .address = addr};
-    if (filter_str.isEmpty() || matchMessage(id, {}, filter_str)) {
-      new_msgs.push_back(id);
+  // filter and sort
+  std::vector<Item> items;
+  items.reserve(all_messages.size());
+  for (const auto &id : all_messages) {
+    bool active = isMessageActive(id);
+    if (active || show_inactive_messages) {
+      auto msg = dbc()->msg(id);
+      Item item = {.id = id,
+                  .active = active,
+                  .name = msg ? msg->name : UNTITLED,
+                  .node = msg ? msg->transmitter : QString()};
+      if (match(item))
+        items.emplace_back(item);
     }
   }
+  sortItems(items);
 
-  sortMessages(new_msgs);
-
-  if (msgs != new_msgs) {
+  if (items_ != items) {
     beginResetModel();
-    msgs = std::move(new_msgs);
+    items_ = std::move(items);
     endResetModel();
+    return true;
   }
+  return false;
 }
 
-void MessageListModel::msgsReceived(const QHash<MessageId, CanData> *new_msgs, bool has_new_ids) {
-  if (has_new_ids || filter_str.contains(Column::FREQ) || filter_str.contains(Column::COUNT) || filter_str.contains(Column::DATA)) {
-    filterAndSort();
+void MessageListModel::msgsReceived(const std::set<MessageId> *new_msgs, bool has_new_ids) {
+  if (has_new_ids || ((filters_.count(Column::FREQ) || filters_.count(Column::COUNT) || filters_.count(Column::DATA)) &&
+                      ++sort_threshold_ == settings.fps)) {
+    sort_threshold_ = 0;
+    if (filterAndSort()) return;
   }
-  for (int i = 0; i < msgs.size(); ++i) {
-    if (new_msgs->contains(msgs[i])) {
-      for (int col = Column::FREQ; col < columnCount(); ++col)
-        emit dataChanged(index(i, col), index(i, col), {Qt::DisplayRole});
-    }
+
+  for (auto &item : items_) {
+    item.active = isMessageActive(item.id);
   }
+  // Update viewport
+  emit dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1));
 }
 
 void MessageListModel::sort(int column, Qt::SortOrder order) {
-  if (column != columnCount() - 1) {
+  if (column != Column::DATA) {
     sort_column = column;
     sort_order = order;
     filterAndSort();
   }
 }
 
-void MessageListModel::suppress() {
-  const double cur_ts = can->currentSec();
-
-  for (auto &id : msgs) {
-    auto &can_data = can->lastMessage(id);
-    for (int i = 0; i < can_data.dat.size(); i++) {
-      const double dt = cur_ts - can_data.last_change_t[i];
-      if (dt < 2.0) {
-        suppressed_bytes.insert({id, i});
-      }
-    }
-  }
-}
-
-void MessageListModel::clearSuppress() {
-  suppressed_bytes.clear();
-}
-
 // MessageView
 
 void MessageView::drawRow(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const {
   QTreeView::drawRow(painter, option, index);
-  const int gridHint = style()->styleHint(QStyle::SH_Table_GridLineColor, &option, this);
-  const QColor gridColor = QColor::fromRgba(static_cast<QRgb>(gridHint));
-  QPen old_pen = painter->pen();
-  painter->setPen(gridColor);
-  painter->drawLine(option.rect.left(), option.rect.bottom(), option.rect.right(), option.rect.bottom());
 
-  auto y = option.rect.y();
-  painter->translate(visualRect(model()->index(0, 0)).x() - indentation() - .5, -.5);
+  QPen oldPen = painter->pen();
+  const int gridHint = style()->styleHint(QStyle::SH_Table_GridLineColor, &option, this);
+  painter->setPen(QColor::fromRgba(static_cast<QRgb>(gridHint)));
+  // Draw bottom border for the row
+  painter->drawLine(option.rect.bottomLeft(), option.rect.bottomRight());
+  // Draw vertical borders for each column
   for (int i = 0; i < header()->count(); ++i) {
-    painter->translate(header()->sectionSize(header()->logicalIndex(i)), 0);
-    painter->drawLine(0, y, 0, y + option.rect.height());
+    int sectionX = header()->sectionViewportPosition(i);
+    painter->drawLine(sectionX, option.rect.top(), sectionX, option.rect.bottom());
   }
-  painter->setPen(old_pen);
-  painter->resetTransform();
+  painter->setPen(oldPen);
 }
 
 void MessageView::dataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight, const QVector<int> &roles) {
@@ -414,13 +407,19 @@ void MessageView::updateBytesSectionSize() {
   auto delegate = ((MessageBytesDelegate *)itemDelegate());
   int max_bytes = 8;
   if (!delegate->multipleLines()) {
-    for (auto it = can->last_msgs.constBegin(); it != can->last_msgs.constEnd(); ++it) {
-      max_bytes = std::max(max_bytes, it.value().dat.size());
+    for (const auto &[_, m] : can->lastMessages()) {
+      max_bytes = std::max<int>(max_bytes, m.dat.size());
     }
   }
-  int width = delegate->widthForBytes(max_bytes);
-  if (header()->sectionSize(MessageListModel::Column::DATA) != width) {
-    header()->resizeSection(MessageListModel::Column::DATA, width);
+  setUniformRowHeights(!delegate->multipleLines());
+  header()->resizeSection(MessageListModel::Column::DATA, delegate->sizeForBytes(max_bytes).width());
+}
+
+void MessageView::wheelEvent(QWheelEvent *event) {
+  if (event->modifiers() == Qt::ShiftModifier) {
+    QApplication::sendEvent(horizontalScrollBar(), event);
+  } else {
+    QTreeView::wheelEvent(event);
   }
 }
 
@@ -438,7 +437,7 @@ void MessageViewHeader::updateFilters() {
       filters[i] = editors[i]->text();
     }
   }
-  emit filtersUpdated(filters);
+  qobject_cast<MessageListModel*>(model())->setFilterStrings(filters);
 }
 
 void MessageViewHeader::updateHeaderPositions() {
@@ -446,8 +445,7 @@ void MessageViewHeader::updateHeaderPositions() {
   for (int i = 0; i < count(); i++) {
     if (editors[i]) {
       int h = editors[i]->sizeHint().height();
-      editors[i]->move(sectionViewportPosition(i), sz.height());
-      editors[i]->resize(sectionSize(i), h);
+      editors[i]->setGeometry(sectionViewportPosition(i), sz.height(), sectionSize(i), h);
       editors[i]->setHidden(isSectionHidden(i));
     }
   }

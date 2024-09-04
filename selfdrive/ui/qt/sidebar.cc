@@ -37,7 +37,7 @@ Sidebar::Sidebar(QWidget *parent) : QFrame(parent), onroad(false), flag_pressed(
 
   QObject::connect(uiState(), &UIState::uiUpdate, this, &Sidebar::updateState);
 
-  pm = std::make_unique<PubMaster, const std::initializer_list<const char *>>({"userFlag"});
+  pm = std::make_unique<PubMaster>(std::vector<const char*>{"userFlag"});
 }
 
 void Sidebar::mousePressEvent(QMouseEvent *event) {
@@ -55,7 +55,7 @@ void Sidebar::mouseReleaseEvent(QMouseEvent *event) {
     flag_pressed = settings_pressed = false;
     update();
   }
-  if (home_btn.contains(event->pos())) {
+  if (onroad && home_btn.contains(event->pos())) {
     MessageBuilder msg;
     msg.initEvent().initUserFlag();
     pm->send("userFlag", msg);
@@ -102,8 +102,6 @@ void Sidebar::updateState(const UIState &s) {
   ItemStatus pandaStatus = {{tr("VEHICLE"), tr("ONLINE")}, good_color};
   if (s.scene.pandaType == cereal::PandaState::PandaType::UNKNOWN) {
     pandaStatus = {{tr("NO"), tr("PANDA")}, danger_color};
-  } else if (s.scene.started && !sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK()) {
-    pandaStatus = {{tr("GPS"), tr("SEARCH")}, warning_color};
   }
   setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
 }

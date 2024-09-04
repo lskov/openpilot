@@ -2,16 +2,17 @@
 import importlib
 import math
 from collections import deque
-from typing import Optional, Dict, Any
+from typing import Any
 
 import capnp
 from cereal import messaging, log, car
+from opendbc.car import structs
 from openpilot.common.numpy_fast import interp
 from openpilot.common.params import Params
-from openpilot.common.realtime import Ratekeeper, Priority, config_realtime_process
-from openpilot.system.swaglog import cloudlog
-
-from openpilot.common.kalman.simple_kalman import KF1D
+from openpilot.common.realtime import DT_CTRL, Ratekeeper, Priority, config_realtime_process
+from openpilot.common.swaglog import cloudlog
+from openpilot.common.simple_kalman import KF1D
+from openpilot.selfdrive.pandad import can_capnp_to_list
 
 
 # Default lead acceleration decay set to 50% at 1s
@@ -37,7 +38,7 @@ class KalmanParams:
     #Q = np.matrix([[10., 0.0], [0.0, 100.]])
     #R = 1e3
     #K = np.matrix([[ 0.05705578], [ 0.03073241]])
-    dts = [dt * 0.01 for dt in range(1, 21)]
+    dts = [i * 0.01 for i in range(1, 21)]
     K0 = [0.12287673, 0.14556536, 0.16522756, 0.18281627, 0.1988689,  0.21372394,
           0.22761098, 0.24069424, 0.253096,   0.26491023, 0.27621103, 0.28705801,
           0.29750003, 0.30757767, 0.31732515, 0.32677158, 0.33594201, 0.34485814,
@@ -125,7 +126,7 @@ def laplacian_pdf(x: float, mu: float, b: float):
   return math.exp(-abs(x-mu)/b)
 
 
-def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks: Dict[int, Track]):
+def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks: dict[int, Track]):
   offset_vision_dist = lead.x[0] - RADAR_TO_CAMERA
 
   def prob(c):
@@ -133,7 +134,7 @@ def match_vision_to_track(v_ego: float, lead: capnp._DynamicStructReader, tracks
     prob_y = laplacian_pdf(c.yRel, -lead.y[0], lead.yStd[0])
     prob_v = laplacian_pdf(c.vRel + v_ego, lead.v[0], lead.vStd[0])
 
-    # This is isn't exactly right, but good heuristic
+    # This isn't exactly right, but it's a good heuristic
     return prob_d * prob_y * prob_v
 
   track = max(tracks.values(), key=prob)
@@ -166,8 +167,8 @@ def get_RadarState_from_vision(lead_msg: capnp._DynamicStructReader, v_ego: floa
   }
 
 
-def get_lead(v_ego: float, ready: bool, tracks: Dict[int, Track], lead_msg: capnp._DynamicStructReader,
-             model_v_ego: float, low_speed_override: bool = True) -> Dict[str, Any]:
+def get_lead(v_ego: float, ready: bool, tracks: dict[int, Track], lead_msg: capnp._DynamicStructReader,
+             model_v_ego: float, low_speed_override: bool = True) -> dict[str, Any]:
   # Determine leads, this is where the essential logic happens
   if len(tracks) > 0 and ready and lead_msg.prob > .5:
     track = match_vision_to_track(v_ego, lead_msg, tracks)
@@ -196,34 +197,29 @@ class RadarD:
   def __init__(self, radar_ts: float, delay: int = 0):
     self.current_time = 0.0
 
-    self.tracks: Dict[int, Track] = {}
+    self.tracks: dict[int, Track] = {}
     self.kalman_params = KalmanParams(radar_ts)
 
     self.v_ego = 0.0
     self.v_ego_hist = deque([0.0], maxlen=delay+1)
+    self.last_v_ego_frame = -1
 
-    self.radar_state: Optional[capnp._DynamicStructBuilder] = None
+    self.radar_state: capnp._DynamicStructBuilder | None = None
     self.radar_state_valid = False
 
     self.ready = False
 
-  def update(self, sm: messaging.SubMaster, rr: Optional[car.RadarData]):
+  def update(self, sm: messaging.SubMaster, rr: structs.RadarData):
+    self.ready = sm.seen['modelV2']
     self.current_time = 1e-9*max(sm.logMonoTime.values())
 
-    radar_points = []
-    radar_errors = []
-    if rr is not None:
-      radar_points = rr.points
-      radar_errors = rr.errors
-
-    if sm.updated['carState']:
+    if sm.recv_frame['carState'] != self.last_v_ego_frame:
       self.v_ego = sm['carState'].vEgo
       self.v_ego_hist.append(self.v_ego)
-    if sm.updated['modelV2']:
-      self.ready = True
+      self.last_v_ego_frame = sm.recv_frame['carState']
 
     ar_pts = {}
-    for pt in radar_points:
+    for pt in rr.points:
       ar_pts[pt.trackId] = [pt.dRel, pt.yRel, pt.vRel, pt.measured]
 
     # *** remove missing points from meta data ***
@@ -244,10 +240,10 @@ class RadarD:
       self.tracks[ids].update(rpt[0], rpt[1], rpt[2], v_lead, rpt[3])
 
     # *** publish radarState ***
-    self.radar_state_valid = sm.all_checks() and len(radar_errors) == 0
+    self.radar_state_valid = sm.all_checks() and len(rr.errors) == 0
     self.radar_state = log.RadarState.new_message()
     self.radar_state.mdMonoTime = sm.logMonoTime['modelV2']
-    self.radar_state.radarErrors = list(radar_errors)
+    self.radar_state.radarErrors = list(rr.errors)
     self.radar_state.carStateMonoTime = sm.logMonoTime['carState']
 
     if len(sm['modelV2'].temporalPose.trans):
@@ -270,6 +266,7 @@ class RadarD:
 
     # publish tracks for UI debugging (keep last)
     tracks_msg = messaging.new_message('liveTracks', len(self.tracks))
+    tracks_msg.valid = self.radar_state_valid
     for index, tid in enumerate(sorted(self.tracks.keys())):
       tracks_msg.liveTracks[index] = {
         "trackId": tid,
@@ -281,26 +278,22 @@ class RadarD:
 
 
 # fuses camera and radar data for best lead detection
-def radard_thread(sm: Optional[messaging.SubMaster] = None, pm: Optional[messaging.PubMaster] = None, can_sock: Optional[messaging.SubSocket] = None):
+def main() -> None:
   config_realtime_process(5, Priority.CTRL_LOW)
 
   # wait for stats about the car to come in from controls
   cloudlog.info("radard is waiting for CarParams")
-  with car.CarParams.from_bytes(Params().get("CarParams", block=True)) as msg:
-    CP = msg
+  CP = messaging.log_from_bytes(Params().get("CarParams", block=True), car.CarParams)
   cloudlog.info("radard got CarParams")
 
   # import the radar from the fingerprint
   cloudlog.info("radard is importing %s", CP.carName)
-  RadarInterface = importlib.import_module(f'selfdrive.car.{CP.carName}.radar_interface').RadarInterface
+  RadarInterface = importlib.import_module(f'opendbc.car.{CP.carName}.radar_interface').RadarInterface
 
   # *** setup messaging
-  if can_sock is None:
-    can_sock = messaging.sub_sock('can')
-  if sm is None:
-    sm = messaging.SubMaster(['modelV2', 'carState'], ignore_avg_freq=['modelV2', 'carState'])  # Can't check average frequency, since radar determines timing
-  if pm is None:
-    pm = messaging.PubMaster(['radarState', 'liveTracks'])
+  can_sock = messaging.sub_sock('can')
+  sm = messaging.SubMaster(['modelV2', 'carState'], frequency=int(1./DT_CTRL))
+  pm = messaging.PubMaster(['radarState', 'liveTracks'])
 
   RI = RadarInterface(CP)
 
@@ -309,21 +302,15 @@ def radard_thread(sm: Optional[messaging.SubMaster] = None, pm: Optional[messagi
 
   while 1:
     can_strings = messaging.drain_sock_raw(can_sock, wait_for_one=True)
-    rr = RI.update(can_strings)
-
+    rr: structs.RadarData | None = RI.update(can_capnp_to_list(can_strings))
+    sm.update(0)
     if rr is None:
       continue
-
-    sm.update(0)
 
     RD.update(sm, rr)
     RD.publish(pm, -rk.remaining*1000.0)
 
     rk.monitor_time()
-
-
-def main(sm: Optional[messaging.SubMaster] = None, pm: Optional[messaging.PubMaster] = None, can_sock: messaging.SubSocket = None):
-  radard_thread(sm, pm, can_sock)
 
 
 if __name__ == "__main__":

@@ -45,9 +45,9 @@ public:
   bool are_inputs_ok();
   void observation_timings_invalid_reset();
 
-  kj::ArrayPtr<capnp::byte> get_message_bytes(MessageBuilder& msg_builder,
-    bool inputsOK, bool sensorsOK, bool gpsOK, bool msgValid);
-  void build_live_location(cereal::LiveLocationKalman::Builder& fix);
+  void build_pose_message(
+    MessageBuilder& msg_builder, bool inputsOK, bool sensorsOK, bool msgValid);
+  void build_live_pose(cereal::LivePose::Builder& fix);
 
   Eigen::VectorXd get_position_geodetic();
   Eigen::VectorXd get_state();
@@ -80,7 +80,6 @@ private:
 
   int64_t unix_timestamp_millis = 0;
   double reset_tracker = 0.0;
-  bool device_fell = false;
   bool gps_mode = false;
   double first_valid_log_time = NAN;
   double ttff = NAN;
