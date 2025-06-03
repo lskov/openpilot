@@ -18,12 +18,12 @@ class TiciFanController(BaseFanController):
     cloudlog.info("Setting up TICI fan handler")
 
     self.last_ignition = False
-    self.controller = PIDController(k_p=1.0, k_i=1e-3, k_f=0.5, rate=(1 / DT_HW)) 
+    self.controller = PIDController(k_p=7.0, k_i=1e-3, k_f=0.5, rate=(1 / DT_HW)) 
                     # PIDController(k_p=0,   k_i=4e-3, k_f=1,   rate=(1 / DT_HW))
 
   def update(self, cur_temp: float, ignition: bool) -> int:
-    self.controller.neg_limit = 0    #-(100 if ignition else 30)
-    self.controller.pos_limit = 100  #-(30 if ignition else 0)
+    self.controller.neg_limit = -(100 if ignition else 30)
+    self.controller.pos_limit = -(30 if ignition else 0)
 
     if ignition != self.last_ignition:
       self.controller.reset()
@@ -36,6 +36,8 @@ class TiciFanController(BaseFanController):
     fan_pwr_out = max(0, fan_raw)  # Clip negatives
     MIN_FAN_POWER = 40
     fan_pwr_out = fan_pwr_out if fan_pwr_out >= MIN_FAN_POWER else 0
+
+    cloudlog.info(f"Fan out: {fan_pwr_out} | Temp: {cur_temp} | Error: {error}")
 
     self.last_ignition = ignition
     return fan_pwr_out
