@@ -34,8 +34,9 @@ class TiciFanController(BaseFanController):
                       feedforward=interp(cur_temp, [60.0, 100.0], [0, 100])
                     ))
     fan_pwr_out = max(0, fan_raw)  # Clip negatives
-    MIN_FAN_POWER = 40
-    fan_pwr_out = fan_pwr_out if fan_pwr_out >= MIN_FAN_POWER else 0
+
+    MAX_FAN_POWER = 75
+    fan_pwr_out = fan_pwr_out if fan_pwr_out <= MAX_FAN_POWER else MAX_FAN_POWER
 
     cloudlog.info(f"Fan out: {fan_pwr_out} | Temp: {cur_temp} | Error: {error}")
 
