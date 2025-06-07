@@ -22,20 +22,20 @@ class TiciFanController(BaseFanController):
                     # PIDController(k_p=0,   k_i=4e-3, k_f=1,   rate=(1 / DT_HW))
 
   def update(self, cur_temp: float, ignition: bool) -> int:
-    self.controller.neg_limit = -(100 if ignition else 30)
-    self.controller.pos_limit = -(30 if ignition else 0)
+    #self.controller.neg_limit = (100 if ignition else 30)
+    #self.controller.pos_limit = (30 if ignition else 0)
 
     if ignition != self.last_ignition:
       self.controller.reset()
 
     error = 70 - cur_temp
-    fan_raw = -int(self.controller.update(
+    fan_raw = int(self.controller.update(
                       error=error,
-                      feedforward=interp(cur_temp, [60.0, 100.0], [40, 70])
+                      #feedforward=interp(cur_temp, [60.0, 100.0], [40, 70])
                     ))
     fan_pwr_out = fan_raw #max(0, fan_raw)  # Clip negatives
 
-    cloudlog.info(f"Fan out: {fan_pwr_out} | Temp: {cur_temp} | Error: {error}")
+    cloudlog.info(f"Fan out: {fan_pwr_out} | Temp: {cur_temp} | Error: {error} | Ignition: {ignition}")
 
     self.last_ignition = ignition
     return fan_pwr_out
