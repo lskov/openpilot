@@ -170,10 +170,37 @@ Re-run `fan_calibrate.py` afterwards. It will report pure PWM and suggest `max_p
 
 ## Keeping this fork current
 
-sunnypilot no longer maintains the tici branch closely, so the fan work above is ours to carry. Two
-upstream changes are worth tracking. The panda fan driver is the one that matters and is covered
-above. The other is sunnypilot's own `FanController`, which now raises the temperature setpoint by
-5 C on tici and tizi to cut fan noise after the AGNOS 18.1 thermal threshold change. That is a
-deliberate trade of cooling for quiet and it is the opposite of what a modded fan usually wants, so it
-is left out here and exposed as `setpoint_c` instead. Raise it if you want the quieter upstream
-behaviour.
+This branch is not behind sunnypilot's comma three line, it is sitting on the end of it. As of
+September 2026 the relevant heads are:
+
+| branch | last moved | head |
+|---|---|---|
+| `staging-tici` | 2025-10-13 | `1f7233c`, the parent of this fork |
+| `master-tici` | 2025-10-09 | `737a6c4`, the master commit that build names |
+| `release-c3` | 2025-10-25 | "branch: migrate TIZI to `release-tizi`" |
+| `sync-20251218-tici` | 2025-12-18 | never shipped |
+
+So there is nothing to pull. The tici line stopped eleven months ago and the only later work is that
+abandoned December sync branch, whose top commit is `Revert "camerad: remove AR0231"`. That is the
+concrete reason it stopped: upstream openpilot deleted AR0231 sensor support in #36070, the comma
+three's original camera, and sunnypilot had to restore it to keep a c3 seeing anything. Master today
+contains no ar0231 files at all, while this branch still has `system/camerad/sensors/ar0231_registers.h`.
+On a c3 with AR0231 sensors, master cannot drive the cameras. Check which sensor a device has with
+`./selfdrive/debug/dump.py roadCameraState --values roadCameraState.sensor`.
+
+Master has moved a long way regardless, roughly 2300 commits, and four of those gaps shape what is
+worth backporting. AGNOS went from 12.8 to 19.7, and that one is entangled with thermals: AGNOS 18.1
+raised the LMH throttling threshold, which is why master then raised the fan setpoint by 5 C on tici
+and tizi in #38100. Taking that fan change without the AGNOS change would just run the device hotter
+for no reason, which is why it is exposed here as `setpoint_c` rather than applied. The panda pin
+moved on and picked up a new health packet along the way, and since the packet version is hashed into
+both the firmware and `panda/python`, a bump has to move both together, unlike the fan driver
+backport above which touches neither. The tree was restructured, everything under `openpilot/` and
+`system/hardware/tici/` renamed to `common/hardware/comma/`, so every future cherry-pick needs path
+translation. And the c3-specific AGNOS split this branch depends on, the `comma tici` route in
+`launch_openpilot.sh` into `sunnypilot/system/hardware/c3/`, was reverted upstream in July 2026, so
+there is no c3 AGNOS path left in master to sync against.
+
+The practical conclusion is to treat this as a hard fork, because it already is one, and to backport
+only changes that stand alone. The panda pure-PWM fan driver is the model for that: it touches the
+fan files and the board headers and nothing else.
