@@ -44,11 +44,14 @@ The fan controller now reads its tuning from `/data/fan_config.json`. The file i
 missing file gives exactly the stock behaviour, so nothing changes until you write one. Because it is
 plain JSON read at process start, it works on a prebuilt install with no rebuild.
 
-Measure the fan first. Stop openpilot, since pandad holds the panda, then sweep it:
+Measure the fan first. Stop openpilot over ssh, since pandad holds the panda, then sweep it. This is
+the same thing `tools/op.sh` does, and it survives until you start it again, unlike killing the tmux
+session, which systemd brings straight back:
 
 ```bash
-tmux kill-session -t comma
+sudo systemctl stop comma
 cd /data/openpilot && ./system/hardware/tici/fan_calibrate.py
+sudo systemctl restart comma
 ```
 
 The script detects which firmware the panda is running, steps the command from 0 to 100%, records the

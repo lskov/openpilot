@@ -4,8 +4,9 @@ Sweep the fan and work out what it can actually do, then suggest a /data/fan_con
 
 Meant for a device whose stock fan has been replaced. Stop openpilot first, it holds the panda:
 
-  tmux kill-session -t comma
+  sudo systemctl stop comma
   ./system/hardware/tici/fan_calibrate.py --write
+  sudo systemctl restart comma
 """
 import argparse
 import json
