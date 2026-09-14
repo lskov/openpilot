@@ -102,6 +102,36 @@ A worked example for a fan measured at 2100 rpm that will not start below 20% co
 }
 ```
 
+## Watching it work
+
+`fan_calibrate.py` measures the fan with openpilot stopped. To see the whole thermal loop while it
+runs, use `fan_watch.py`, which needs openpilot up because it subscribes to `deviceState` and
+`peripheralState`:
+
+```bash
+./system/hardware/tici/fan_watch.py
+```
+
+It prints a line a second: current and peak `maxTempC`, the thermal status band, the percentage the
+controller is asking for, the rpm the fan is delivering, the rpm that command implies, and the ratio
+between the last two.
+
+```
+   temp    peak     status  desired     rpm  target  ratio
+  77.5C   77.5C     yellow      34%    2210    2244    98%
+  88.1C   88.1C        red     100%    6480    6600    98%
+  91.0C   91.0C        red     100%    3100    6600    47%
+```
+
+Read the ratio first. Well under 100% means the fan is not delivering what it was told to, which is a
+fan or firmware problem and the calibration sweep is where to look. Sitting near 100% while desired is
+pinned at 100% and the temperature still climbs means the opposite: the fan is doing everything asked
+of it and the limit is elsewhere, usually the airflow path or the heatsink contact rather than
+anything in software.
+
+For general CPU and memory context alongside it, `selfdrive/debug/live_cpu_and_temp.py` already
+exists, and `selfdrive/debug/dump.py deviceState` prints the raw message.
+
 ## Firmware route: backport pure PWM
 
 The better fix is to make the command mean duty cycle again, which is what upstream did. After it,
