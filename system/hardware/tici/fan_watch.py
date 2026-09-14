@@ -54,7 +54,9 @@ def main() -> None:
     # how much of what was asked for the fan is delivering, only meaningful once it is asked to spin
     ratio = f"{rpm / target:5.0%}" if target > 0 else "    -"
 
-    print(f"{device.maxTempC:6.1f}C {peak:6.1f}C {device.thermalStatus:>10} {desired:7d}% {rpm:7d} {target:7d} {ratio:>6}")
+    # thermalStatus is a capnp enum, which has no __format__, so stringify it before padding
+    status = str(device.thermalStatus)
+    print(f"{device.maxTempC:6.1f}C {peak:6.1f}C {status:>10} {desired:7d}% {rpm:7d} {target:7d} {ratio:>6}")
 
 
 if __name__ == "__main__":
