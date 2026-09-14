@@ -22,6 +22,7 @@ from openpilot.selfdrive.selfdrived.state import StateMachine
 from openpilot.selfdrive.selfdrived.alertmanager import AlertManager, set_offroad_alert
 
 from openpilot.system.hardware import HARDWARE
+from openpilot.system.hardware.fan_controller import FanConfig
 from openpilot.system.version import get_build_metadata
 
 from openpilot.sunnypilot.mads.mads import ModularAssistiveDrivingSystem
@@ -126,6 +127,7 @@ class SelfdriveD(CruiseHelper):
     self.last_steering_pressed_frame = 0
     self.distance_traveled = 0
     self.last_functional_fan_frame = 0
+    self.fan_min_rpm = FanConfig.load().min_rpm
     self.events_prev = []
     self.logged_comm_issue = None
     self.not_running_prev = None
@@ -239,9 +241,10 @@ class SelfdriveD(CruiseHelper):
     if self.sm['deviceState'].memoryUsagePercent > 90 and not SIMULATION:
       self.events.add(EventName.lowMemory)
 
-    # Alert if fan isn't spinning for 5 seconds
-    if self.sm['peripheralState'].pandaType != log.PandaState.PandaType.unknown:
-      if self.sm['peripheralState'].fanSpeedRpm < 500 and self.sm['deviceState'].fanSpeedPercentDesired > 50:
+    # Alert if fan isn't spinning for 5 seconds. fan_min_rpm is 0 on a device whose fan reports no
+    # usable tachometer, e.g. an aftermarket fan wired without one, which would nag forever otherwise.
+    if self.sm['peripheralState'].pandaType != log.PandaState.PandaType.unknown and self.fan_min_rpm > 0:
+      if self.sm['peripheralState'].fanSpeedRpm < self.fan_min_rpm and self.sm['deviceState'].fanSpeedPercentDesired > 50:
         # allow enough time for the fan controller in the panda to recover from stalls
         if (self.sm.frame - self.last_functional_fan_frame) * DT_CTRL > 15.0:
           self.events.add(EventName.fanMalfunction)
