@@ -2,19 +2,43 @@
 
 ## The short version
 
-A replacement fan behaves badly on this build because the panda firmware it ships does not command
-PWM duty, it commands a **target RPM**. `set_fan_power(67)` does not mean "run at 67% duty", it means
-"spin at 67% of 6600 rpm", which is 4422 rpm. A typical PC fan tops out well below that, so the target
-is unreachable, the firmware's integrator winds up to 100% duty and stays there. The fan then has two
-states, off and flat out, and the temperature controller has no authority over anything in between.
+The panda firmware this build ships does not command PWM duty, it commands a **target RPM**.
+`set_fan_power(67)` does not mean "run at 67% duty", it means "spin at 67% of 6600 rpm", which is
+4422 rpm. Whether that is a problem depends entirely on the fan you fitted, so measure before you
+tune. A fan that reaches 6600 rpm tracks the command across the whole range and needs no
+configuration at all. A fan that tops out well below it can never reach the target, the firmware's
+integrator winds up to 100% duty and stays there, and the fan is left with two states, off and flat
+out, with the temperature controller having no authority in between.
 
-Upstream fixed this in commaai/panda `a2064b8`, "Change fan to use pure pwm", on 13 September 2025.
-The panda firmware in this build predates it: `panda/python/__init__.py` here matches
-sunnyhaibin/panda `0e7a3fd` from 9 August 2025. Note that **sunnypilot master already carries the fix**,
-because it pins a newer panda, so this is a backport problem rather than an unsolved one.
+Upstream removed the ambiguity in commaai/panda `a2064b8`, "Change fan to use pure pwm", on
+13 September 2025. The panda firmware in this build predates it: `panda/python/__init__.py` here
+matches sunnyhaibin/panda `0e7a3fd` from 9 August 2025. Note that **sunnypilot master already carries
+the change**, because it pins a newer panda, so this is a backport rather than an unsolved problem.
 
 There are two ways to deal with it. The software route needs no firmware work and is described first.
-The firmware route is the real fix and is described after it.
+The firmware route removes the whole class of problem and is described after it.
+
+### What this device actually measured
+
+A sweep of the modded comma three this document was written for, at 10% steps:
+
+| command | rpm | applied duty |
+|--------:|----:|-------------:|
+| 10% | 665 | 21% |
+| 30% | 1949 | 35% |
+| 50% | 3246 | 52% |
+| 70% | 4529 | 69% |
+| 100% | 6498 | 87% |
+
+Two things to read off it. The rpm is almost exactly `6500 * command / 100` at every step, so the
+closed loop is hitting its target across the full range and this fan is not speed-limited at all.
+And the applied duty is *not* the command, it is whatever the loop needed, which is what identifies
+the firmware as closed loop rather than pure PWM. Note that duty crosses the command line around
+50-70%: a single-point probe there would misidentify the firmware, which is why `fan_calibrate.py`
+decides from the whole sweep.
+
+For this device the conclusion is that no config file is needed. Removing the hardcoded fan output
+is the entire fix.
 
 ## How the fan is actually wired
 

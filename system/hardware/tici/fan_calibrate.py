@@ -24,7 +24,8 @@ STOCK_MAX_RPM = {
   Panda.HW_TYPE_CUATRO: 12500,
 }
 
-SPIN_UP_RPM = 100  # above this the fan counts as actually turning
+SPIN_UP_RPM = 100    # above this the fan counts as actually turning
+DUTY_TOLERANCE = 2   # how far applied duty may sit from the command and still count as a match
 
 
 def sample(panda: Panda, dwell: float) -> tuple[int, int]:
@@ -41,13 +42,14 @@ def sample(panda: Panda, dwell: float) -> tuple[int, int]:
   return round(statistics.mean(rpms)), round(statistics.mean(powers))
 
 
-def detect_pure_pwm(panda: Panda, dwell: float) -> bool:
-  """Pure-PWM firmware drives the duty straight from the command, the older firmware closes a loop
-     on the tachometer and its duty will not track the command."""
-  panda.set_fan_power(50)
-  _, power = sample(panda, dwell)
-  panda.set_fan_power(0)
-  return abs(power - 50) <= 2
+def is_pure_pwm(results: list[tuple[int, int, int]]) -> bool:
+  """Pure-PWM firmware writes the command straight to the duty cycle, clamped up to 20% at the
+     bottom, so duty equals the command at every step whatever fan is attached. The closed-loop
+     firmware sets whatever duty the fan needs to hit a target RPM, and only crosses the command
+     line where the fan's own curve happens to intersect it. A single probe can land on that
+     crossing, the whole sweep cannot, so decide from all of it."""
+  return all(abs(power - min(100, max(20, command))) <= DUTY_TOLERANCE
+             for command, _, power in results if command > 0)
 
 
 def sweep(panda: Panda, step: int, dwell: float) -> list[tuple[int, int, int]]:
@@ -70,9 +72,14 @@ def recommend(results: list[tuple[int, int, int]], pure_pwm: bool, hw_type: byte
     return config
 
   max_rpm = max(r for _, r in spinning)
-
-  config.min_percent = min(c for c, _ in spinning)
   config.min_rpm = max(0, round(min(r for _, r in spinning) / 2))
+
+  # Only claim a start-up floor where the sweep actually caught the fan refusing to start. If the
+  # lowest command tested is also the lowest that spun, the fan may well start lower still and a
+  # floor taken from the step size would just be the step size in disguise.
+  lowest_spinning = min(c for c, _ in spinning)
+  stalled_below = any(0 < c < lowest_spinning for c, _, _ in results)
+  config.min_percent = lowest_spinning if stalled_below else 0
 
   if pure_pwm:
     # the command is the duty cycle, so the full range is usable
@@ -102,25 +109,35 @@ def main() -> None:
     panda.set_heartbeat_disabled()
 
     try:
-      print("detecting panda fan firmware...")
-      pure_pwm = detect_pure_pwm(panda, args.dwell)
-      print(f"  {'pure PWM, the command is the duty cycle' if pure_pwm else 'closed loop, the command is a target RPM'}\n")
-
       print("sweeping the fan, this takes a couple of minutes...")
       results = sweep(panda, args.step, args.dwell)
     finally:
       panda.set_fan_power(0)
 
+  pure_pwm = is_pure_pwm(results)
+  stock_max = STOCK_MAX_RPM.get(hw_type, 6600)
   max_rpm = max((r for c, r, _ in results if c > 0), default=0)
-  print()
-  if max_rpm <= SPIN_UP_RPM:
-    print("the tachometer never read above idle. Either the fan is not turning at all, or it has no")
-    print("tachometer wired to the panda. min_rpm is set to 0 so the fan malfunction alert stays quiet.")
+
+  print("\nfan firmware:")
+  if pure_pwm:
+    print("  pure PWM. Applied duty matched the command at every step, so the command is the duty cycle")
+    print("  and the whole 0-100 range is usable whatever the fan's top speed is.")
   else:
-    print(f"the fan tops out around {max_rpm} rpm")
-    if not pure_pwm:
-      stock_max = STOCK_MAX_RPM.get(hw_type, 6600)
-      print(f"the firmware scales the command against {stock_max} rpm, so only part of the range is usable")
+    print("  closed loop. Applied duty did not track the command, so the command is a target RPM of")
+    print(f"  {stock_max} * command / 100 and the firmware drives whatever duty reaches it.")
+
+  print("\nfan:")
+  if max_rpm <= SPIN_UP_RPM:
+    print("  the tachometer never read above idle. Either the fan is not turning at all, or it has no")
+    print("  tachometer wired to the panda. min_rpm is set to 0 so the fan malfunction alert stays quiet.")
+  elif pure_pwm or max_rpm >= 0.95 * stock_max:
+    print(f"  tops out around {max_rpm} rpm and tracks the command across the range. Nothing to correct,")
+    print("  the stock tuning already reaches everything this fan can do.")
+  else:
+    reachable = round(100 * max_rpm / stock_max)
+    print(f"  tops out around {max_rpm} rpm against a {stock_max} rpm scale, so only the bottom")
+    print(f"  {reachable}% of the command range is reachable. Above that the firmware's integrator")
+    print("  saturates and the fan simply runs flat out.")
 
   config = recommend(results, pure_pwm, hw_type)
   payload = json.dumps(config.__dict__, indent=2)
