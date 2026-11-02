@@ -25,6 +25,10 @@ class ToggleActionSP(ToggleAction):
     ToggleAction.__init__(self, initial_state, width, enabled, callback)
     self.toggle = ToggleSP(initial_state=initial_state, callback=callback, param=param)
 
+  def set_parent_rect(self, parent_rect: rl.Rectangle) -> None:
+    super().set_parent_rect(parent_rect)
+    self.toggle.set_parent_rect(parent_rect)
+
 
 class ButtonSP(Button):
   def _update_state(self):
@@ -50,6 +54,10 @@ class SimpleButtonActionSP(ItemAction):
     super().set_touch_valid_callback(touch_callback)
     self.button_action.set_touch_valid_callback(touch_callback)
 
+  def set_parent_rect(self, parent_rect: rl.Rectangle) -> None:
+    super().set_parent_rect(parent_rect)
+    self.button_action.set_parent_rect(parent_rect)
+
   def _render(self, rect: rl.Rectangle) -> bool | int | None:
     self.button_action.set_enabled(self.enabled)
     return self.button_action.render(rect)
@@ -63,6 +71,10 @@ class ButtonActionSP(ButtonAction):
   def set_value(self, value: str | Callable[[], str], color: rl.Color = style.ITEM_TEXT_VALUE_COLOR):
     self._value_source = value
     self._value_color = color
+
+  def set_parent_rect(self, parent_rect: rl.Rectangle) -> None:
+    super().set_parent_rect(parent_rect)
+    self._button.set_parent_rect(parent_rect)
 
   def _render(self, rect: rl.Rectangle) -> bool:
     """Duplicate of ButtonAction._render, with additional value rendering"""
@@ -132,9 +144,19 @@ class MultipleButtonActionSP(MultipleButtonAction):
       rl.draw_text_ex(self._font, text, rl.Vector2(text_x, text_y), 40, 0, text_color)
 
   def _handle_mouse_release(self, mouse_pos: MousePos):
-    MultipleButtonAction._handle_mouse_release(self, mouse_pos)
-    if self.param_key:
-      self.params.put(self.param_key, self.selected_button)
+    # Hit-test the buttons where _render draws them: edge to edge on one track starting at rect.x.
+    # MultipleButtonAction's version assumes RIGHT_ITEM_PADDING between buttons, which put each tap
+    # zone 20 px further right per button than the button on screen.
+    button_y = self._rect.y + (self._rect.height - style.BUTTON_HEIGHT) / 2
+    for i in range(len(self.buttons)):
+      button_rect = rl.Rectangle(self._rect.x + i * self.button_width, button_y, self.button_width, style.BUTTON_HEIGHT)
+      if rl.check_collision_point_rec(mouse_pos, button_rect):
+        self.selected_button = i
+        if self.callback:
+          self.callback(i)
+        if self.param_key:
+          self.params.put(self.param_key, self.selected_button)
+        return
 
 
 class ListItemSP(ListItem):
@@ -209,6 +231,12 @@ class ListItemSP(ListItem):
     # Don't draw items that are not in parent's viewport
     if (self._rect.y + self.rect.height) <= self._parent_rect.y or self._rect.y >= (self._parent_rect.y + self._parent_rect.height):
       return
+
+    # Take touches on the action only where it is visible. A row scrolled partly out of the list is still
+    # drawn there, clipped, and its action would otherwise answer a tap on whatever sits above or below the
+    # list, such as a sub-panel's Back button.
+    if self.action_item:
+      self.action_item.set_parent_rect(self._parent_rect)
 
     content_x = self._rect.x + style.ITEM_PADDING
     text_x = content_x
