@@ -170,22 +170,57 @@ Re-run `fan_calibrate.py` afterwards. It will report pure PWM and suggest `max_p
 
 ## About this branch
 
-`tici-103` is the experiment: sunnypilot's abandoned `sync-20251218-tici` (openpilot 0.10.3,
-18 December 2025) with the AGNOS flash refused. `staging-tici` stays as it is and remains the
+`103-tici` is the experiment: sunnypilot's abandoned `sync-20251218-tici` (openpilot 0.10.3,
+18 December 2025), made to run on AGNOS 12.8. `staging-tici` stays as it is and remains the
 fallback, so nothing here is a one-way door.
 
-What that branch changed and what was undone is in the first commit here. In short, its final commit
-deleted the comma three launch route and hand-built a hybrid AGNOS from 15.1 and 12.8 boot-chain
-partitions, which would have flashed unattended on first boot. Both are pinned back to 12.8 here.
+The name is not cosmetic, it has to end in `-tici`. On a comma three the Software settings branch
+picker lists only branches ending in `-tici`, and 0.10.3 goes further: `channel_type` is
+`channel.endswith("-tici")`, and hardwared keeps a comma three permanently offroad with
+"Unsupported branch detected" on anything else (system/hardware/hardwared.py:336-339). The same
+commit was first pushed as `tici-103`, which would have built cleanly and never engaged.
 
-It is unproven. It was never released, its last commits read `bump`, `wrong bump`, `more`,
-`another more`, and it did not pass its own lint. Three things are worth knowing before flashing it:
-it is submodule based rather than flattened like the release branch, so it needs
-`git submodule update --init --recursive`; it carries no `prebuilt` marker, so the first launch runs
-a full on-device build including the tinygrad models; and the driving model is the 0.10.3 one, which
-no one has run on a comma three. The failure mode we expect, if 0.10.3 userspace needs libraries
-AGNOS 12.8 does not carry, is a build or launch error rather than anything that touches the boot
-chain.
+Three things in the upstream branch would have stopped it on AGNOS 12.8, and all three are fixed here.
+Its final commit removed the comma three launch route and hand-built a hybrid AGNOS from 15.1 and 12.8
+boot-chain partitions that would have flashed unattended on first boot; both launch paths are pinned
+back to 12.8. The UI build calls `msgfmt`, from gettext, which AGNOS added only in 15.x; the build now
+falls back to a vendored copy of CPython's msgfmt.py when GNU msgfmt is absent. And two Python packages
+that AGNOS 15.1 ships in the device venv are missing from 12.8, `jeepney` (the UI's Wi-Fi manager) and
+`kaitaistruct` (ubloxd, now Python, for the comma three's u-blox receiver); both are vendored under
+`third_party/` and linked from the repo root. Either package alone would have stopped everything,
+because the manager pre-imports every process module at startup outside any try. QCOM_PRIORITY is now
+exported on the comma three path too, so the UI can preempt the models on the GPU as upstream intends.
+
+The AGNOS 12.8 to 15.1 image diff was audited package by package, and separately every module-level
+import reachable from what the manager pre-imports was traced and resolved. Both found the same gaps
+and nothing else. The other five packages 15.1 adds (mapbox-earcut, spidev2, ioctl-opt, ml-dtypes,
+flaky) are never imported on a comma three, and the version bumps between the two images need no change.
+
+What has not been proven is the runtime itself. The raylib UI has never been the main UI on this
+device, since 0.10.1 ran the Qt one, and no one has run the 0.10.3 driving model on a comma three. It is
+submodule based rather than flattened like the release branch, and carries no `prebuilt` marker, so
+the first launch runs a full on-device build including the tinygrad models. Expect that to be long.
+
+### Things never to do on this device
+
+Some of these look like reasonable fixes for a problem on this branch and would make it much worse.
+
+- Never let it take AGNOS 15.x. Its kernel no longer builds the comma three's device tree
+  (agnos-kernel-sdm845 `b90695f`, "remove comma_tici.dts", 26 August 2025; present at 12.8's
+  `8b4b117`, gone at 15.1's `80b1ca2`), which is why the abandoned hybrid kept 12.8's `boot`. Keep
+  both `launch_env.sh` files and both `agnos.json` manifests at 12.8, together.
+- Never install the raylib wheel from AGNOS 15.1 (commaai/raylib-python-cffi release 8). It is a
+  DRM build; 12.8 runs Weston, so every raylib window fails to open and the UI crash-loops. Release 3,
+  which 12.8 ships, has the same Python API.
+- Never upgrade pycapnp to 2.2 or later (Data fields become memoryview), and leave onnx at 1.18.0
+  (1.19 pulls in ml_dtypes). Do not resolve the device venv from this repo's uv.lock.
+- Never set `KERN=1` in the environment; that path imports spidev2, which 12.8 lacks.
+- When building by hand, use `scons --minimal` or `system/manager/build.py`; plain `scons` builds
+  extras that 12.8 cannot.
+
+To see every build failure in one pass rather than one per attempt, run
+`scons -k -j4 --minimal 2>&1 | grep -E 'Error|error:' | sort -u` from `/data/openpilot`; the normal
+build stops at the first failing target.
 
 ## Keeping this fork current
 
