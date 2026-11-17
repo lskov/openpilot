@@ -5,6 +5,8 @@ on:
 
 jobs:
   test-discourse-post:
+    # Only in sunnypilot's own repo: forks have no Discourse credentials, so every push would fail.
+    if: github.repository == 'sunnypilot/sunnypilot'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

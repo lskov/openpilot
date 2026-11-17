@@ -22,8 +22,9 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # Only in sunnypilot's own repo: forks have neither its SSH key nor write access to its GitLab LFS.
     # Skip if PR is in draft mode
-    if: (github.event_name != 'pull_request' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)) && !github.event.pull_request.head.repo.fork
+    if: github.repository == 'sunnypilot/sunnypilot' && (github.event_name != 'pull_request' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)) && !github.event.pull_request.head.repo.fork
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
